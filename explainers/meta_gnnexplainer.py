@@ -53,8 +53,8 @@ class MetaGNNGExplainer(torch.nn.Module):
 
         # pred = log_logits.softmax(dim=1)[0, pred_label]
         # loss = -torch.log2(pred+ EPS) + torch.log2(1 - pred+ EPS)
-
-        loss = -log_logits[0, pred_label]
+        criterion = torch.nn.NLLLoss()
+        loss = criterion(log_logits, pred_label)
         m = self.edge_mask.sigmoid()
         loss = loss + self.coeffs['edge_size'] * m.sum()
         ent = -m * torch.log(m + EPS) - (1 - m) * torch.log(1 - m + EPS)
@@ -75,28 +75,34 @@ class MetaGNNGExplainer(torch.nn.Module):
                                                    batch=graph.batch)
             pred_label = soft_pred.argmax(dim=-1)
 
-        self.__set_masks__(graph.x, graph.edge_index)
-        self.to(graph.x.device)
+        # self.__set_masks__(graph.x, graph.edge_index)
 
+        N = graph.x.size(0)
+        E = graph.edge_index.size(1)
+
+        std = torch.nn.init.calculate_gain('relu') * sqrt(2.0 / (2 * N))
+        self.edge_mask = torch.nn.Parameter(torch.randn(E) * std).to()
+        self.to(graph.x.device)
         optimizer = torch.optim.Adam([self.edge_mask], lr=self.lr)
 
         for epoch in range(1, self.epochs + 1):
 
             optimizer.zero_grad()
             if self.task == "nc":
-                soft_pred, repr = self.model.get_node_pred_subgraph(x=graph.x, edge_index=graph.edge_index,
-                                                                 mapping=graph.mapping)
+                output_prob, output_repr= self.model.get_pred_explain(x=graph.x, edge_index=graph.edge_index,
+                                                                                edge_mask=self.edge_mask,
+                                                                                mapping=graph.mapping)
             else:
-                soft_pred, repr = self.model.get_pred(x=graph.x, edge_index=graph.edge_index,
-                                                   batch=graph.batch)
-
-            log_logits = F.log_softmax(repr)
+                output_prob, output_repr = self.model.get_pred_explain(x=graph.x, edge_index=graph.edge_index,
+                                                                                    edge_mask=self.edge_mask,
+                                                                                    batch=graph.batch)
+            log_logits = F.log_softmax(output_repr)
             loss = self.__loss__(log_logits, pred_label)
             loss.backward()
             optimizer.step()
 
         edge_mask = self.edge_mask.detach().sigmoid()
-        self.__clear_masks__()
+        # self.__clear_masks__()
 
         return edge_mask
 

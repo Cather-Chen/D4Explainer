@@ -175,7 +175,7 @@ class Explainer(object):
         if not counter_edge_index==None:
             G.add_edges_from(list(counter_edge_index.cpu().numpy().T))
         if self.vis_dict is None:
-            self.vis_dict = vis_dict[self.model_name] if self.model_name in vis_dict.keys() else vis_dict['defult']
+            self.vis_dict = vis_dict[self.model_name] if self.model_name in vis_dict.keys() else vis_dict['default']
         
         folder = Path(r'image/%s' % (self.model_name))
         if save and not os.path.exists(folder):
@@ -295,7 +295,7 @@ class Explainer(object):
             hit_at = np.unique(graph.edge_index[:,idx].detach().cpu().numpy()).tolist()
             def add_atom_index(mol):
                 atoms = mol.GetNumAtoms()
-                for i in range( atoms ):
+                for i in range(atoms):
                     mol.GetAtomWithIdx(i).SetProp(
                         'molAtomMapNumber', str(mol.GetAtomWithIdx(i).GetIdx()))
                 return mol

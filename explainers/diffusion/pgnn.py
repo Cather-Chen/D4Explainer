@@ -35,15 +35,17 @@ def masked_instance_norm2D(x: torch.Tensor, mask: torch.Tensor, eps: float = 1e-
     return: [batch_size (N), num_objects (L), num_objects (L), features(C)]
     """
     mask = mask.view(x.size(0), x.size(1), x.size(2), 1).expand_as(x)
-    mean = (torch.sum(x * mask, dim=[1,2]) / torch.sum(mask, dim=[1,2]))   # (N,C)
+    zero_indices = torch.where(torch.sum(mask, dim=[1,2]) < 0.5)[0].squeeze(-1)  #[N,]
+    mean = (torch.sum(x * mask, dim=[1,2]) / (torch.sum(mask, dim=[1,2])))  # (N,C)
     # mean = mean#.detach()
     var_term = ((x - mean.unsqueeze(1).unsqueeze(1).expand_as(x)) * mask)**2  # (N,L,L,C)
-    var = (torch.sum(var_term, dim=[1,2]) / torch.sum(mask, dim=[1,2]))  # (N,C)
+    var = (torch.sum(var_term, dim=[1,2]) / (torch.sum(mask, dim=[1,2]))+1e-5)  # (N,C)
     # var = var#.detach()
     mean = mean.unsqueeze(1).unsqueeze(1).expand_as(x)  # (N, L, L, C)
     var = var.unsqueeze(1).unsqueeze(1).expand_as(x)    # (N, L, L, C)
     instance_norm = (x - mean) / torch.sqrt(var + eps)   # (N, L, L, C)
     instance_norm = instance_norm * mask
+    instance_norm[zero_indices, :,:,:] = 0
     return instance_norm
 
 class PowerfulLayer(nn.Module):
@@ -81,7 +83,7 @@ class PowerfulLayer(nn.Module):
         ##matrix multiply each matching layer of features as well as adjacencies
         out = out1 @ out2
         del out1, out2
-        out = out / norm
+        out = out / (norm + 1e-5)
         ##permute back to correct dim and concat with the skip-mlp in last dim
         out_cat = torch.cat((out.permute(0, 2, 3, 1), x), dim=3)  # batch, N, N, out_feat
         del x
@@ -106,7 +108,7 @@ class FeatureExtractor(nn.Module):
             output: (batch_size, out_features). """
         u = u * mask
         ##tensor of batch * 1 that represernts nr of active nodes
-        n = mask[:, 0].sum(1)
+        n = mask[:, 0].sum(1) + 1e-5
         ##tensor of batches * features * their diagonal elements (this retrieves the node elements that are stored on the diagonal)
         diag = u.diagonal(dim1=1, dim2=2)  # batch_size, channels, num_nodes
 
@@ -217,37 +219,6 @@ class Powerful(nn.Module):
         # out = self.forward_old(A, node_features, mask)
         return out
 
-    def test_forward(self, A, node_features, mask, noiselevel):
-        if len(mask.shape) < 4:
-            mask = mask[..., None]
-        else:
-            mask = mask
-        if len(A.shape) < 4:
-            u = A[..., None]  # [batch, N, N, 1]
-        else:
-            u = A
-
-        if self.noise_mlp:
-            noiselevel = torch.tensor([float(noiselevel)]).to(self.device)
-            noiselevel = self.time_mlp(noiselevel)
-            noise_level_matrix = noiselevel.expand(u.size(0), u.size(1), u.size(3)).to(self.device)
-            noise_level_matrix = torch.diag_embed(noise_level_matrix.transpose(-2, -1), dim1=1, dim2=2)
-        else:
-            noiselevel = torch.full([1], noiselevel).to(self.device)
-            noise_level_matrix = noiselevel.expand(u.size(0), u.size(1), u.size(3)).to(self.device)  # [bsz, N, 1]
-            noise_level_matrix = torch.diag_embed(noise_level_matrix.transpose(-2, -1), dim1=1, dim2=2) # [bsz, N, N ,1]
-        #     """
-        #     noise_level_matrix=torch.full_like(u, noiselevel).to(self.config.dev)
-        #     """
-        node_feature1 = node_features.unsqueeze(1).repeat(1, node_features.size(1), 1, 1)
-        node_feature2 = node_features.unsqueeze(2).repeat(1, 1, node_features.size(1), 1)
-        # u = torch.cat([u, torch.diag_embed(node_features.transpose(-2,-1), dim1=1, dim2=2), noise_level_matrix], dim=-1).to(self.device) #[bsz, N, N, C+2]
-        u = torch.cat([u, node_feature1, node_feature2, noise_level_matrix],
-                      dim=-1).to(self.device)  # [bsz, N, N, 2C+2]
-        out = self.test_lin(u)
-        out = out * mask
-        return out
-
 
     def forward_cat(self, A, node_features, mask, noiselevel):
         if len(mask.shape) < 4:
@@ -289,21 +260,21 @@ class Powerful(nn.Module):
             out = [u]
         else:
             out = [u]
-            u = self.in_lin(u)
+            u1 = self.in_lin(u)
         for conv, extractor, bn in zip(self.convs, self.feature_extractors, self.bns):
-            u = conv(u, mask) + (u if self.residual else 0)
+            u1 = conv(u1, mask) + (u1 if self.residual else 0)
             if self.normalization == 'none':
-                u = u
+                u1 = u1
             elif self.normalization == 'instance':
-                u = masked_instance_norm2D(u, mask)
+                u1 = masked_instance_norm2D(u1, mask)
             elif self.normalization == 'batch':
-                u = bn(u.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
+                u1 = bn(u1.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
             else:
                 raise ValueError
-            u = self.activation(u)
-            u = u * mask
-            out.append(u)
-        del u
+            u1 = self.activation(u1)
+            u2 = u1 * mask
+            out.append(u2)
+        # del u
         out = torch.cat(out, dim=-1)
         if self.node_out:
             node_out = self.layer_cat_lin_node(out.diagonal(dim1=1, dim2=2).transpose(-2, -1))

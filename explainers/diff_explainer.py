@@ -2,19 +2,15 @@ import logging
 import time
 import os
 import numpy as np
-from datetime import datetime
 import torch
-from torch.nn.utils import clip_grad_norm_
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import MessagePassing
-# from sample_ppgn_simple import sample_main, sample_testing
+from torch_geometric.utils import to_undirected
 from explainers.diffusion.graph_utils import graph2tensor, tensor2graph, gen_list_of_data_single, generate_mask, gen_full
 from explainers.diffusion.pgnn import Powerful
 from explainers.base import Explainer
 
 import wandb
 
-# EPS = 1e3
 def model_save(args, model, mean_train_loss, best_sparsity, mean_test_acc):
     to_save = {
         'model': model.state_dict(),
@@ -48,14 +44,12 @@ def loss_func_bce(score_list, groundtruth, sigma_list, mask, device, sparsity_le
     loss_matrix = loss_matrix * (
                 1 - 2 * torch.tensor(sigma_list).repeat(bsz).unsqueeze(-1).unsqueeze(-1).expand(groundtruth.size(0), num_node, num_node).to(device)
                 + 1.0 / len(sigma_list))
-    weight_tensor = torch.where(groundtruth == 1, 1.0, 2.0).to(device)
-        # torch.ones_like(groundtruth).to(device)  + groundtruth * 0.5
     loss_matrix = loss_matrix * mask
     loss_matrix = (loss_matrix + torch.transpose(loss_matrix, -2, -1)) / 2
     loss = torch.mean(loss_matrix)
     return loss
 
-def sparsity(score, groundtruth, mask, threshold = 0.5):
+def sparsity(score, groundtruth, mask, threshold=0.5):
     '''
     params:
         score: list of [bsz, N, N, 1], list: len(sigma_list),
@@ -65,20 +59,37 @@ def sparsity(score, groundtruth, mask, threshold = 0.5):
     score_tensor = torch.stack(score, dim=0).squeeze(-1)  # len_sigma_list, bsz, N, N]
     score_tensor = torch.mean(score_tensor, dim=0)  # [bsz, N, N]
     pred_adj = torch.where(torch.sigmoid(score_tensor) > threshold, 1, 0).to(groundtruth.device)
-    # pred_adj = pred_adj * mask
     pred_adj = pred_adj * mask
-    groundtruth = groundtruth * mask
-    adj_diff = torch.abs(groundtruth-pred_adj)   #[bsz, N, N]
-    num_edge_b = groundtruth.sum(dim=(1,2))
+    groundtruth_ = groundtruth * mask
+    adj_diff = torch.abs(groundtruth_ - pred_adj)   #[bsz, N, N]
+    num_edge_b = groundtruth_.sum(dim=(1,2))
     adj_diff_ratio = adj_diff.sum(dim=(1,2)) / num_edge_b
     ratio_average = torch.mean(adj_diff_ratio)
     return ratio_average
 
+
+def _sparsity(score, groundtruth, mask, threshold=0.5):
+    '''
+    params:
+        score: list of [bsz, N, N, 1], list: len(sigma_list),
+        groundtruth: [bsz, N, N]
+        mask: [bsz, N, N]
+    '''
+    mr_list = []
+    for score_tensor in score:  #[bsz, N, N, 1]
+        score_tensor = score_tensor.squeeze(-1)  # [ bsz, N, N]
+        pred_adj = torch.where(torch.sigmoid(score_tensor) > threshold, 1, 0).to(groundtruth.device)
+        pred_adj = pred_adj * mask
+        groundtruth_ = groundtruth * mask
+        adj_diff = torch.abs(groundtruth_ - pred_adj)   #[bsz, N, N]
+        num_edge_b = groundtruth_.sum(dim=(1,2))
+        adj_diff_ratio = adj_diff.sum(dim=(1,2)) / num_edge_b
+        ratio_average = float(torch.mean(adj_diff_ratio).detach().cpu())
+        mr_list.append(ratio_average)
+    mr = np.mean(mr_list)
+    return mr
+
 def gnn_pred(graph_batch, graph_batch_sub, gnn_model, ds, task):
-    # for module in gnn_model.modules():
-    #     if isinstance(module, MessagePassing):
-    #         module._explain = False
-    #         module._edge_mask = None
     gnn_model.eval()
     if task == "nc":
         output_prob, _ = gnn_model.get_node_pred_subgraph(x=graph_batch.x, edge_index=graph_batch.edge_index,
@@ -99,29 +110,18 @@ def gnn_pred(graph_batch, graph_batch_sub, gnn_model, ds, task):
 
 
 def loss_cf_exp(gnn_model, graph_batch, score, y_pred, y_exp, full_edge, mask, ds, task="nc"):
-    #score: list of [bsz, N, N, 1], list: len(sigma_list); mask: [bsz, N, N]
-    score_tensor = torch.stack(score, dim=0).squeeze(-1)  # len_sigma_list, bsz, N, N]
-    score_tensor = torch.mean(score_tensor, dim=0).view(-1,1)  # [bsz*N*N,1]
+    score_tensor = torch.stack(score, dim=0).squeeze(-1)
+    score_tensor = torch.mean(score_tensor, dim=0).view(-1,1)
     mask_bool = mask.bool().view(-1,1)
-    edge_mask_full = score_tensor[mask_bool]  # [num_edge]
+    edge_mask_full = score_tensor[mask_bool]
     assert edge_mask_full.size(0) == full_edge.size(1)
     criterion = torch.nn.NLLLoss()
-    # criterion = torch.nn.CrossEntropyLoss()
-    # for module in gnn_model.modules():
-    #     if isinstance(module, MessagePassing):
-    #         module._explain = True
-    #         module._apply_sigmoid = True
-    #         module._edge_mask = edge_mask_full
     if task == "nc":
         output_prob_cont, output_repr_cont = gnn_model.get_pred_explain(x=graph_batch.x, edge_index=full_edge, edge_mask=edge_mask_full,
                                                                 mapping=graph_batch.mapping)
     else:
-        if ds == "mnist":
-            graph_copy = graph_batch.clone()
-            graph_copy.edge_index = full_edge
-            output_prob_cont, output_repr_cont = gnn_model.get_pred_explain(data=graph_copy, edge_mask=edge_mask_full)
-        else:
-            output_prob_cont, output_repr_cont = gnn_model.get_pred_explain(x=graph_batch.x, edge_index=full_edge, edge_mask=edge_mask_full,
+        output_prob_cont, output_repr_cont = gnn_model.get_pred_explain(x=graph_batch.x, edge_index=full_edge,
+                                                                        edge_mask=edge_mask_full,
                                                                         batch=graph_batch.batch)
     n = output_repr_cont.size(-1)
     bsz = output_repr_cont.size(0)
@@ -131,10 +131,7 @@ def loss_cf_exp(gnn_model, graph_batch, score, y_pred, y_exp, full_edge, mask, d
     loss_cf = criterion(neg_prop, y_pred)
     labels = torch.LongTensor([[i] for i in y_pred]).to(y_pred.device)
     fid_drop = (1- output_prob_cont.gather(1, labels).view(-1)).detach().cpu().numpy()
-    # fid_drop = (neg_prop.gather(1, labels).view(-1) - neg_prop.gather(1, labels).view(
-    #     -1)).detach().cpu().numpy()
     fid_drop = np.mean(fid_drop)
-    # assert graph_batch.self_y.shape[0] == y_pred_sub.size(0)  #bsz
     acc_cf = float(y_exp.eq(y_pred).sum().item() / y_pred.size(0)) #less, better
     return loss_cf, fid_drop, acc_cf
 
@@ -156,7 +153,6 @@ class DiffExplainer(Explainer):
                                      weight_decay=args.weight_decay)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.lr_decay)
         noise_list = args.noise_list
-        # wandb.watch(model, criterion=torch.nn.NLLLoss(), log_freq=1)
         for epoch in range(args.epoch):
             print(f"start epoch {epoch}")
             train_losses = []
@@ -170,6 +166,9 @@ class DiffExplainer(Explainer):
             model.train()
             train_loader = DataLoader(train_dataset, batch_size=args.train_batchsize, shuffle=True)
             for i, graph in enumerate(train_loader):
+                if graph.is_directed() == True:
+                    edge_index_temp = graph.edge_index
+                    graph.edge_index = to_undirected(edge_index=edge_index_temp)
                 graph.to(args.device)
                 train_adj_b, train_x_b = graph2tensor(graph, device=args.device)
                 # train_adj_b: [bsz, N, N]; train_x_b: [bsz, N, C]
@@ -181,8 +180,6 @@ class DiffExplainer(Explainer):
                     sigma_list = [sigma_list]
                 train_x_b, train_ori_adj_b, train_node_flag_sigma, train_noise_adj_b, noise_diff =  \
                     gen_list_of_data_single(train_x_b, train_adj_b, train_node_flag_b, sigma_list, args)
-                #train_ori_adj_b: target adjacency matrix, [len(sigma_list) * batch_size, N, N]
-                #train_noise_adj_b: noisy adjacency matrxi, [len(sigma_list) * batch_size, N, N]
                 optimizer.zero_grad()
                 train_noise_adj_b_chunked = train_noise_adj_b.chunk(len(sigma_list), dim=0)
                 train_x_b_chunked = train_x_b.chunk(len(sigma_list), dim=0)
@@ -223,11 +220,6 @@ class DiffExplainer(Explainer):
             mean_train_fidelity = np.mean(train_fid)
             mean_train_sparsity = np.mean(train_sparsity)
             mean_remain_rate = np.mean(train_remain)
-            wandb_dict = {'Train Epoch': epoch, 'Time Used': time.time() - t_start, 'Total Loss': mean_train_loss,
-                          'Distribution Loss': mean_train_loss_dist, 'Counterfactual Loss': mean_train_loss_cf,
-                          'Train Acc':mean_train_acc, 'fidelity':mean_train_fidelity, 'Edit Ratio': mean_train_sparsity,
-                          'Remain Ratio': mean_remain_rate}
-            # wandb.log(wandb_dict)
             print((f'Training Epoch: {epoch} | '
                              f'training loss: {mean_train_loss} | '
                              f'training fidelity drop: {mean_train_fidelity} | '
@@ -245,6 +237,10 @@ class DiffExplainer(Explainer):
                 test_loader = DataLoader(dataset=test_dataset, batch_size=args.test_batchsize, shuffle=False)
                 model.eval()
                 for graph in test_loader:
+                    if graph.is_directed() == True:
+                        edge_index_temp = graph.edge_index
+                        graph.edge_index = to_undirected(edge_index=edge_index_temp)
+
                     graph.to(args.device)
                     test_adj_b, test_x_b = graph2tensor(graph, device=args.device)
                     test_x_b = test_x_b.to(args.device)
@@ -296,7 +292,7 @@ class DiffExplainer(Explainer):
                               'Distribution Loss (Test)': mean_test_loss_dist, 'Counterfactual Loss (Test)': mean_test_loss_cf,
                               'Test Acc': mean_test_acc, "Edit Ratio (Test)": mean_test_sparsity, 'Test Fidelity': mean_test_fid,
                               'Test Remain Rate': mean_test_reamin}
-                # wandb.log(wandb_dict)
+                wandb.log(wandb_dict)
 
                 print((f'Evaluation Epoch: {epoch} | '
                              f'test loss: {mean_test_loss} | '
@@ -307,3 +303,97 @@ class DiffExplainer(Explainer):
                 if mean_test_sparsity < best_sparsity:
                     best_sparsity = mean_test_sparsity
                     model_save(args, model, mean_train_loss, best_sparsity, mean_test_acc)
+
+
+    def explain_evaluation(self, args, graph):
+        model = Powerful(args).to(args.device)
+        exp_dir = f'{args.root}/{args.dataset}/'
+        model.load_state_dict(torch.load(os.path.join(exp_dir, "best_model.pth"))['model'])
+        model.eval()
+        graph.to(args.device)
+        test_adj_b, test_x_b = graph2tensor(graph, device=args.device) #[bsz, N, N]
+        test_x_b = test_x_b.to(args.device)
+        test_node_flag_b = test_adj_b.sum(-1).gt(1e-5).to(dtype=torch.float32)
+        sigma_list = list(np.random.uniform(low=args.prob_low, high=args.prob_high, size=args.sigma_length)) \
+            if args.noise_list is None else args.noise_list
+        if isinstance(sigma_list, float):
+            sigma_list = [sigma_list]
+        test_x_b, test_ori_adj_b, test_node_flag_sigma, test_noise_adj_b, noise_diff = \
+                gen_list_of_data_single(test_x_b, test_adj_b, test_node_flag_b, sigma_list, args)
+        test_noise_adj_b_chunked = test_noise_adj_b.chunk(len(sigma_list), dim=0)
+        test_x_b_chunked = test_x_b.chunk(len(sigma_list), dim=0)
+        test_node_flag_sigma = test_node_flag_sigma.chunk(len(sigma_list), dim=0)
+        score = []
+        masks = []
+        for i, sigma in enumerate(sigma_list):
+            mask = generate_mask(test_node_flag_sigma[i])
+            score_batch = model(A=test_noise_adj_b_chunked[i].to(args.device),
+                                    node_features=test_x_b_chunked[i].to(args.device), mask=mask.to(args.device),
+                                    noiselevel=sigma).to(args.device)  # [bsz, N, N, 1]
+            masks.append(mask)
+            score.append(score_batch)
+        graph_batch_sub = tensor2graph(graph, score, mask)
+        full_edge_index = gen_full(graph.batch, mask)
+        modif_r = sparsity(score, test_adj_b, mask)
+        score_tensor = torch.stack(score, dim=0).squeeze(-1)  # len_sigma_list, bsz, N, N]
+        score_tensor = torch.mean(score_tensor, dim=0).view(-1, 1)  # [bsz*N*N,1]
+        mask_bool = mask.bool().view(-1, 1)
+        edge_mask_full = score_tensor[mask_bool]
+        if args.task == "nc":
+            output_prob_cont, output_repr_cont = self.model.get_pred_explain(x=graph.x, edge_index=full_edge_index,
+                                                                                edge_mask=edge_mask_full,
+                                                                                mapping=graph.mapping)
+        else:
+            output_prob_cont, output_repr_cont = self.model.get_pred_explain(x=graph.x,
+                                                                                edge_index=full_edge_index,
+                                                                                edge_mask=edge_mask_full,
+                                                                                batch=graph.batch)
+        y_ori = graph.y if args.task == "gc" else graph.self_y
+        y_exp = output_prob_cont.argmax(dim=-1)
+        edge_index_diff = graph_batch_sub.edge_index
+        return edge_index_diff, y_ori, y_exp, modif_r
+
+    def model_level_explain(self, args, random_adj, node_feature, sigma):
+        random_adj = random_adj.unsqueeze(0)  #bsz=1
+        node_feature = node_feature.unsqueeze(0)  #bsz=1
+        mask = torch.ones_like(random_adj).to(args.device)
+        model = Powerful(args).to(args.device)
+        exp_dir = f'{args.root}/{args.dataset}/'
+        model.load_state_dict(torch.load(os.path.join(exp_dir, "best_model.pth"))['model'])
+        model.eval()
+        score = model(A=random_adj,
+                    node_features=node_feature, mask=mask, noiselevel=sigma).to(args.device)  # [1, N, N, 1]
+        score = score.squeeze(0).squeeze(-1)
+        pred_adj = torch.where(torch.sigmoid(score) > 0.5, 1, 0).to(score.device)
+        return pred_adj   #[N, N]
+
+
+    def explanation_generate(self, args, graph):
+        model = Powerful(args).to(args.device)
+        exp_dir = f'{args.root}/{args.dataset}/'
+        model.load_state_dict(torch.load(os.path.join(exp_dir, "best_model.pth"))['model'])
+        model.eval()
+        graph.to(args.device)
+        test_adj_b, test_x_b = graph2tensor(graph, device=args.device) #[bsz, N, N]
+        test_x_b = test_x_b.to(args.device)
+        test_node_flag_b = test_adj_b.sum(-1).gt(1e-5).to(dtype=torch.float32)
+        sigma_list = list(np.random.uniform(low=args.prob_low, high=args.prob_high, size=args.sigma_length)) \
+            if args.noise_list is None else args.noise_list
+        if isinstance(sigma_list, float):
+            sigma_list = [sigma_list]
+        test_x_b, test_ori_adj_b, test_node_flag_sigma, test_noise_adj_b, noise_diff = \
+                gen_list_of_data_single(test_x_b, test_adj_b, test_node_flag_b, sigma_list, args)
+        test_noise_adj_b_chunked = test_noise_adj_b.chunk(len(sigma_list), dim=0)
+        test_x_b_chunked = test_x_b.chunk(len(sigma_list), dim=0)
+        test_node_flag_sigma = test_node_flag_sigma.chunk(len(sigma_list), dim=0)
+        score = []
+        masks = []
+        for i, sigma in enumerate(sigma_list):
+            mask = generate_mask(test_node_flag_sigma[i])
+            score_batch = model(A=test_noise_adj_b_chunked[i].to(args.device),
+                                    node_features=test_x_b_chunked[i].to(args.device), mask=mask.to(args.device),
+                                    noiselevel=sigma).to(args.device)  # [bsz, N, N, 1]
+            masks.append(mask)
+            score.append(score_batch)
+        graph_batch_sub = tensor2graph(graph, score, mask)
+        return graph_batch_sub

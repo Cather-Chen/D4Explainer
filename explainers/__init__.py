@@ -13,3 +13,5 @@ from .gflow_explainer import GFlowExplainer
 from .diff_explainer import DiffExplainer
 from .common import EdgeMaskNet
 from .cf_explainer import CF_Explainer
+from .visual import *
+from  .d4explainer import D4Explainer

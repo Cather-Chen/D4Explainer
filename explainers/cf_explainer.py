@@ -13,7 +13,7 @@ class MetaCFExplainer(torch.nn.Module):
         'edge_ent': 0.5,
     }
 
-    def __init__(self, model, epochs=100, lr=0.01, log=True, task="gc"):
+    def __init__(self, model, epochs=1000, lr=0.01, log=True, task="gc"):
         super(MetaCFExplainer, self).__init__()
         self.model = model
         self.epochs = epochs
@@ -42,16 +42,14 @@ class MetaCFExplainer(torch.nn.Module):
         self.edge_mask = None
 
     def __loss__(self, log_logits, pred_label):
-        loss = -log_logits[0, pred_label]
-        m = self.edge_mask.sigmoid()
-        loss = loss + self.coeffs['edge_size'] * m.sum()
-        ent = -m * torch.log(m + EPS) - (1 - m) * torch.log(1 - m + EPS)
-        loss = loss + self.coeffs['edge_ent'] * ent.mean()
+        loss = -F.nll_loss(log_logits,pred_label)
+        # m = self.edge_mask.sigmoid()
+        # loss = loss + self.coeffs['edge_size'] * m.sum()
+        # ent = -m * torch.log(m + EPS) - (1 - m) * torch.log(1 - m + EPS)
+        # loss = loss + self.coeffs['edge_ent'] * ent.mean()
         return loss
 
     def explain_graph(self, graph, **kwargs):
-
-        self.__clear_masks__()
 
         # get the initial prediction.
         with torch.no_grad():
@@ -63,30 +61,30 @@ class MetaCFExplainer(torch.nn.Module):
                                                    batch=graph.batch)
             pred_label = soft_pred.argmax(dim=-1)
 
-        self.__set_masks__(graph.x, graph.edge_index)
+        N = graph.x.size(0)
+        E = graph.edge_index.size(1)
+        std = torch.nn.init.calculate_gain('relu') * sqrt(2.0 / (2 * N))
+        self.edge_mask = torch.nn.Parameter(torch.randn(E) * std)
         self.to(graph.x.device)
-
         optimizer = torch.optim.Adam([self.edge_mask], lr=self.lr)
 
         for epoch in range(1, self.epochs + 1):
 
             optimizer.zero_grad()
             if self.task == "nc":
-                soft_pred, repr = self.model.get_node_pred_subgraph(x=graph.x, edge_index=graph.edge_index,
-                                                                    mapping=graph.mapping)
+                output_prob, output_repr= self.model.get_pred_explain(x=graph.x, edge_index=graph.edge_index,
+                                                                                edge_mask=self.edge_mask,
+                                                                                mapping=graph.mapping)
             else:
-                soft_pred, repr = self.model.get_pred(x=graph.x, edge_index=graph.edge_index,
-                                                      batch=graph.batch)
-            bsz, n = repr.size(0), repr.size(1)
-            inf_diag = torch.diag(-torch.ones((n)) / 0).unsqueeze(0).repeat(bsz, 1, 1).to(repr.device)
-            neg_prop = (repr.unsqueeze(1).expand(bsz, n, n) + inf_diag).logsumexp(
-                -1) - repr.logsumexp(-1).unsqueeze(1).repeat(1, n)
-            loss = self.__loss__(neg_prop, pred_label)
+                output_prob, output_repr = self.model.get_pred_explain(x=graph.x, edge_index=graph.edge_index,
+                                                                                    edge_mask=self.edge_mask,
+                                                                                    batch=graph.batch)
+            log_logits = F.log_softmax(output_repr, dim=-1)
+            loss = self.__loss__(log_logits, pred_label)
             loss.backward()
             optimizer.step()
 
         edge_mask = self.edge_mask.detach().sigmoid()
-        self.__clear_masks__()
 
         return edge_mask
 
@@ -126,7 +124,7 @@ class CF_Explainer(Explainer):
 
     def pack_explanatory_subgraph(self, top_ratio=0.2,
                                   graph=None, imp=None, relabel=False, if_cf=True):
-        ratio_cf = 0.9-top_ratio
+        ratio_cf = 1-top_ratio
         if graph is None:
             graph, imp = self.last_result
         assert len(imp) == graph.num_edges, 'length mismatch'

@@ -60,7 +60,6 @@ class CXPlain(Explainer):
         optimizer = torch.optim.Adam(explainer.parameters(), lr=lr)
 
         for i in range(1, epoch + 1):
-
             optimizer.zero_grad()
             out = explainer(graph)
             out = F.softmax(out)

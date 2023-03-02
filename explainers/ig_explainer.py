@@ -6,14 +6,15 @@ from explainers.base import Explainer
 
 class IGExplainer(Explainer):
 
-    def __init__(self, device, gnn_model_path, task):
+    def __init__(self, device, gnn_model_path, task, ds):
         super(IGExplainer, self).__init__(device, gnn_model_path, task)
+        self.ds=ds
 
     def explain_graph(self, graph,
                         model=None,
                         draw_graph=0,
                         baseline=0,
-                        steps=20,
+                        steps=5,
                         node_base=None,
                         edge_base=None,
                         vis_ratio=0.2
@@ -21,9 +22,15 @@ class IGExplainer(Explainer):
 
         if model == None:
             model = self.model
+        y = graph.y if self.task == "gc" else graph.self_y
+        tmp_graph = graph.clone()
+        num_edges = graph.edge_index.size(1)
+        if self.ds not in {"ba3", "mutag"}:
+            tmp_graph.edge_attr = torch.ones((num_edges, 1)).to(self.device)
 
-        self.node_base = torch.zeros_like(graph.x) if node_base == None else node_base
-        self.edge_base = torch.zeros_like(graph.edge_attr) if edge_base == None else edge_base
+
+        self.node_base = torch.zeros_like(tmp_graph.x) if node_base == None else node_base
+        self.edge_base = torch.zeros_like(tmp_graph.edge_attr) if edge_base == None else edge_base
 
         scale = [baseline + (float(i) / steps) * (1 - baseline) for i in range(0, steps + 1)]
         edge_grads = []
@@ -31,14 +38,16 @@ class IGExplainer(Explainer):
 
         for i in range(len(scale)):
 
-            edge_attr = Variable(scale[i] * graph.edge_attr, requires_grad=True)
-            pred = model(graph.x,
-                       graph.edge_index,
-                       edge_attr,
-                       graph.batch)
+            tmp_graph.edge_attr = Variable(scale[i] * tmp_graph.edge_attr, requires_grad=True)
+            if self.task == "nc":
+                soft_pred, _ = model.get_node_pred_subgraph(x=tmp_graph.x, edge_index=tmp_graph.edge_index,
+                                                            edge_attr=tmp_graph.edge_attr, mapping=tmp_graph.mapping)
+            else:
+                soft_pred, _ = model.get_pred(x=tmp_graph.x, edge_index=tmp_graph.edge_index,
+                                              edge_attr=tmp_graph.edge_attr, batch=tmp_graph.batch)
 
-            pred[0, graph.y].backward()
-            score = pow(edge_attr.grad, 2).sum(dim=1).cpu().numpy()
+            soft_pred[0, y].backward()
+            score = pow(tmp_graph.edge_attr.grad, 2).sum(dim=1).detach().cpu().numpy()
             edge_grads.append(score * step_len)
             model.zero_grad()
 
@@ -50,3 +59,41 @@ class IGExplainer(Explainer):
         self.last_result = (graph, edge_imp)
 
         return edge_imp
+
+
+    def evaluate_acc(self, top_ratio_list, graph=None, imp=None, if_cf=False):
+
+        if graph is None:
+            assert self.last_result is not None
+            graph, imp = self.last_result
+        acc = np.array([[]])
+        fidelity = np.array([[]])
+
+        num_edges = graph.edge_index.size(1)
+        if self.ds not in {"ba3", "mutag"}:
+            graph.edge_attr = torch.ones((num_edges, 1)).to(self.device)
+
+        if self.task == "nc":
+            soft_pred, _ = self.model.get_node_pred_subgraph(x=graph.x, edge_index=graph.edge_index, edge_attr =graph.edge_attr, mapping=graph.mapping)
+        else:
+            soft_pred, _ = self.model.get_pred(x=graph.x, edge_index=graph.edge_index, edge_attr=graph.edge_attr,batch=graph.batch)
+
+        y_pred = soft_pred.argmax(dim=-1)
+        for idx, top_ratio in enumerate(top_ratio_list):
+            exp_subgraph = self.pack_explanatory_subgraph(top_ratio, graph=graph, imp=imp, if_cf=if_cf)
+            if self.task == "nc":
+                soft_pred, _ = self.model.get_node_pred_subgraph(x=exp_subgraph.x, edge_index=exp_subgraph.edge_index,
+                                                                 edge_attr=exp_subgraph.edge_attr, mapping=exp_subgraph.mapping)
+            else:
+                soft_pred, _ = self.model.get_pred(x=exp_subgraph.x, edge_index=exp_subgraph.edge_index, edge_attr=exp_subgraph.edge_attr,
+                                                   batch=exp_subgraph.batch)
+            # soft_pred: [bsz, num_class]
+            res_acc = (y_pred == soft_pred.argmax(dim=-1)).detach().cpu().float().view(-1, 1).numpy()
+            labels = torch.LongTensor([[i] for i in y_pred]).to(y_pred.device)
+            if if_cf == False:
+                res_fid = soft_pred.gather(1, labels).detach().cpu().float().view(-1, 1).numpy()
+            else:
+                res_fid = (1 - soft_pred.gather(1, labels)).detach().cpu().float().view(-1, 1).numpy()
+            acc = np.concatenate([acc, res_acc], axis=1)  # [bsz, len_ratio_list]
+            fidelity = np.concatenate([fidelity, res_fid], axis=1)
+        return acc, fidelity

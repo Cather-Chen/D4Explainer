@@ -2,6 +2,7 @@ import copy
 import math
 import numpy as np
 from torch_geometric.nn import MessagePassing
+import torch.nn.functional as F
 
 import torch
 from torch_geometric.nn import MessagePassing
@@ -31,7 +32,7 @@ class PGExplainer(Explainer):
             e_in_channels,
             hid=hid,
             n_layers=n_layers).to(self.device)
-        self.epoch = 100
+        self.epoch = 1000
         self.lr = 0.01
 
     def __set_masks__(self, mask, model):
@@ -170,20 +171,31 @@ class PGExplainer(Explainer):
         for epoch in range(1, self.epoch + 1):
             ori_mask = self.get_mask(graph)
             edge_mask = self.__reparameterize__(ori_mask, training=train_mode, beta=temp)
-            self.__set_masks__(edge_mask, self.model)
+            # self.__set_masks__(edge_mask, self.model)
             if self.task == "nc":
-                _, output_repr = self.model.get_node_pred_subgraph(x=graph.x, edge_index=graph.edge_index,
-                                                                 mapping=graph.mapping)
+                output_prob, output_repr = self.model.get_pred_explain(x=graph.x, edge_index=graph.edge_index,
+                                                                                edge_mask=edge_mask,
+                                                                                mapping=graph.mapping)
             else:
-                _, output_repr = self.model.get_pred(x=graph.x, edge_index=graph.edge_index,
-                                                   batch=graph.batch)
+                output_prob, output_repr = self.model.get_pred_explain(x=graph.x, edge_index=graph.edge_index,
+                                                                                    edge_mask=edge_mask,
+                                                                                    batch=graph.batch)
 
-            loss = self.__cfloss__(output_repr, edge_mask, y_pred)
+            log_logits = F.log_softmax(output_repr)
+            criterion = torch.nn.NLLLoss()
+            loss = criterion(log_logits, y_pred)
+
+            # bsz, n = output_repr.size(0), output_repr.size(1)
+            # inf_diag = torch.diag(-torch.ones((n)) / 0).unsqueeze(0).repeat(bsz, 1, 1).to(output_repr.device)
+            # neg_prop = (output_repr.unsqueeze(1).expand(bsz, n, n) + inf_diag).logsumexp(
+            #     -1) - output_repr.logsumexp(-1).unsqueeze(1).repeat(1, n)
+            # criterion = torch.nn.NLLLoss()
+            # loss = criterion(neg_prop, y_pred)
             loss.backward()
             optimizer.step()
 
         imp = edge_mask.detach().cpu().numpy()
-        self.__clear_masks__(self.model)
+        # self.__clear_masks__(self.model)
         if draw_graph:
             self.visualize(graph, imp, self.name, vis_ratio=vis_ratio)
         self.last_result = (graph, imp)
@@ -192,8 +204,8 @@ class PGExplainer(Explainer):
 
 
     def pack_explanatory_subgraph(self, top_ratio=0.2,
-                                  graph=None, imp=None, relabel=False, if_cf=True):
-        ratio_cf = 0.9 - top_ratio
+                                  graph=None, imp=None, relabel=False, if_cf=False):
+
         if graph is None:
             graph, imp = self.last_result
         assert len(imp) == graph.num_edges, 'length mismatch'
@@ -205,8 +217,11 @@ class PGExplainer(Explainer):
         for i in range(graph.num_graphs):
             edge_indicator = torch.where(graph_map == i)[0].detach().cpu()
             Gi_n_edge = len(edge_indicator)
-            topk = min(max(math.ceil(ratio_cf * Gi_n_edge), 1), Gi_n_edge)
-            Gi_pos_edge_idx = np.argsort(-imp[edge_indicator])[:topk]
+            topk = min(max(math.ceil(top_ratio * Gi_n_edge), 1), Gi_n_edge)
+            if if_cf == False:
+                Gi_pos_edge_idx = np.argsort(-imp[edge_indicator])[:topk]
+            else:
+                Gi_pos_edge_idx = np.argsort(-imp[edge_indicator])[topk:]
             top_idx = torch.cat([top_idx, edge_indicator[Gi_pos_edge_idx]])
         try:
             exp_subgraph.edge_attr = graph.edge_attr[top_idx]
