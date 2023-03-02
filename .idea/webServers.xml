@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="d98264f5-38c2-4ef9-957e-b0eecf5f1786" name="grace">
+        <fileTransfer rootFolder="/vast/palmer/home.grace/jc3999/GExp" accessType="SFTP" host="grace.hpc.yale.edu" port="22" sshConfigId="299d1246-d743-481f-993a-70e2aa35460f" sshConfig="jc3999@grace.hpc.yale.edu:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
