@@ -11,7 +11,7 @@ class Explainer(object):
 
     def __init__(self, device, gnn_model_path, task="gc"):
         self.device = device
-        self.model = torch.load(gnn_model_path).to(self.device)
+        self.model = torch.load(gnn_model_path, map_location=self.device).to(self.device)
         self.model.eval()
         self.model_name = self.model.__class__.__name__
         self.name = self.__class__.__name__

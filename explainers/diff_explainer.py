@@ -9,8 +9,6 @@ from explainers.diffusion.graph_utils import graph2tensor, tensor2graph, gen_lis
 from explainers.diffusion.pgnn import Powerful
 from explainers.base import Explainer
 
-import wandb
-
 def model_save(args, model, mean_train_loss, best_sparsity, mean_test_acc):
     to_save = {
         'model': model.state_dict(),
@@ -288,11 +286,6 @@ class DiffExplainer(Explainer):
                 mean_test_fid = np.mean(test_fid)
                 mean_test_sparsity = np.mean(test_sparsity)
                 mean_test_reamin = np.mean(test_remain)
-                wandb_dict = {'Test Epoch': epoch, 'Time Used (Test)': time.time() - t_start, 'Total Loss (Test)': mean_test_loss,
-                              'Distribution Loss (Test)': mean_test_loss_dist, 'Counterfactual Loss (Test)': mean_test_loss_cf,
-                              'Test Acc': mean_test_acc, "Edit Ratio (Test)": mean_test_sparsity, 'Test Fidelity': mean_test_fid,
-                              'Test Remain Rate': mean_test_reamin}
-                wandb.log(wandb_dict)
 
                 print((f'Evaluation Epoch: {epoch} | '
                              f'test loss: {mean_test_loss} | '
