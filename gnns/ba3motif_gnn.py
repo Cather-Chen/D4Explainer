@@ -1,21 +1,22 @@
-import sys
-import time
-import random
 import argparse
 import os
 import os.path as osp
+import random
+import sys
+import time
 
 import torch
-from torch.nn import Linear, ReLU, ModuleList, Softmax, CrossEntropyLoss
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch_geometric.nn import global_mean_pool ,GCNConv
-from torch_geometric.data import DataLoader
 import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss, Linear, ModuleList, ReLU, Softmax
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch_geometric.data import DataLoader
+from torch_geometric.nn import GCNConv, global_mean_pool
 
 sys.path.append('..')
-from gnns.overloader import overload
-from utils import set_seed, Gtrain, Gtest, Gtrain2, Gtest2
 from datasets.ba3motif_dataset import BA3Motif
+from gnns.overloader import overload
+from utils import Gtest, Gtest2, Gtrain, Gtrain2, set_seed
+
 EPS = 1
 
 

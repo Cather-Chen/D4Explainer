@@ -1,5 +1,6 @@
 from texttable import Texttable
 
+
 def args_print(args, logger):
     _dict = vars(args)
     table = Texttable()

@@ -1,11 +1,12 @@
+import os
+import os.path as osp
+import pickle
+
 import numpy as np
 import torch
-import os.path as osp
-import os
-import pickle
-from torch_geometric.utils import k_hop_subgraph,subgraph
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.datasets import WebKB
+from torch_geometric.utils import k_hop_subgraph, subgraph
 
 
 def get_neighbourhood(node_idx, edge_index, features, labels,n_hops):

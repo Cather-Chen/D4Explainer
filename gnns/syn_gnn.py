@@ -1,21 +1,30 @@
-import sys
-import time
-import random
 import argparse
 import os
 import os.path as osp
+import random
+import sys
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import ModuleList
-from torch.nn import Sequential as Seq, ReLU, Linear as Lin, Softmax
+from torch.nn import Linear as Lin, ModuleList, ReLU, Sequential as Seq, Softmax
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.data import DataLoader
-from torch_geometric.nn import GINEConv, BatchNorm, global_mean_pool, GINConv, GCNConv,GATConv
+from torch_geometric.nn import (
+    BatchNorm,
+    GATConv,
+    GCNConv,
+    GINConv,
+    GINEConv,
+    global_mean_pool,
+)
 from torch_geometric.utils import accuracy
+
 sys.path.append('..')
-from gnns.overloader import overload
 import torch.nn.functional as F
+
+from gnns.overloader import overload
 from utils import set_seed
 
 EPS = 1

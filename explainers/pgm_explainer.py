@@ -1,7 +1,8 @@
+import numpy as np
+import torch
+
 from explainers.base import Explainer
 from explainers.meta_pgm_explainer import MetaPGMExplainer
-import torch
-import numpy as np
 
 
 class PGMExplainer(Explainer):

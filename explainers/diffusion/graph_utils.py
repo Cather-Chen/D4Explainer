@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch_geometric.utils import to_dense_adj, degree
+from torch_geometric.utils import degree, to_dense_adj
 
 do_check_adjs_symmetry = False
 

@@ -1,25 +1,33 @@
-import sys
-import time
-import random
 import argparse
 import os
 import os.path as osp
+import random
+import sys
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
-from torch_geometric.utils import add_self_loops, degree,remove_self_loops,add_remaining_self_loops
-from torch.nn import ModuleList
-from torch.nn import Sequential as Seq, ReLU, Linear as Lin, Softmax
+from torch.nn import Linear as Lin, ModuleList, ReLU, Sequential as Seq, Softmax
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch_geometric.utils import (
+    accuracy,
+    add_remaining_self_loops,
+    add_self_loops,
+    degree,
+    remove_self_loops,
+)
 from torch_scatter import scatter_add
-from torch_geometric.utils import accuracy
+
 sys.path.append('..')
-from gnns.overloader import overload
-import torch.nn.functional as F
-from torch_geometric.nn import MessagePassing, BatchNorm
-from torch.nn import Parameter
-from torch_geometric.nn.inits import glorot, zeros
 import math
+
+import torch.nn.functional as F
+from torch.nn import Parameter
+from torch_geometric.nn import BatchNorm, MessagePassing
+from torch_geometric.nn.inits import glorot, zeros
+
+from gnns.overloader import overload
 from utils import set_seed
 
 EPS = 1

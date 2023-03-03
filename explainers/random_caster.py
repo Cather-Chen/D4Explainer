@@ -1,7 +1,10 @@
 import random
+
 import numpy as np
-from explainers.base import Explainer
 import torch
+
+from explainers.base import Explainer
+
 
 class RandomCaster(Explainer):
     

@@ -1,13 +1,16 @@
-from utils.dataset import get_datasets
-from sklearn.manifold import TSNE
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import sys
 import argparse
 import os.path as osp
+import sys
+
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
 import torch
+from sklearn.manifold import TSNE
 from torch_geometric.data import DataLoader
+
+from utils.dataset import get_datasets
+
 sys.path.append('..')
 
 

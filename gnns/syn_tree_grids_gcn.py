@@ -1,17 +1,18 @@
-import sys
-import time
-import random
 import argparse
 import os
 import os.path as osp
+import random
+import sys
+import time
+
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn import ModuleList
-from torch.nn import Sequential as Seq, ReLU, Linear as Lin, Softmax
+from torch.nn import Linear as Lin, ModuleList, ReLU, Sequential as Seq, Softmax
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import BatchNorm, GCNConv
 from torch_geometric.utils import accuracy
+
 sys.path.append('..')
 from utils import set_seed
 

@@ -2,9 +2,8 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
-from torch.nn import ModuleList, Linear as Lin
-from torch_geometric.nn import BatchNorm, ARMAConv
+from torch.nn import Linear as Lin, ModuleList, functional as F
+from torch_geometric.nn import ARMAConv, BatchNorm
 
 
 class MLP(nn.Module):

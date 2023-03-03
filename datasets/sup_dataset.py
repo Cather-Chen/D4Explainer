@@ -1,6 +1,8 @@
+import os.path as osp
+
 import torch
 from torch_geometric.data import InMemoryDataset
-import os.path as osp
+
 
 class Tox(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):

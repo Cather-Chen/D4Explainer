@@ -7,9 +7,10 @@ Ying et al. GNNExplainer: Generating Explanations for Graph Neural Networks.
 """
 
 from math import sqrt
+
 import torch
-from torch_geometric.nn import MessagePassing
 import torch.nn.functional as F
+from torch_geometric.nn import MessagePassing
 
 EPS = 1e-15
 

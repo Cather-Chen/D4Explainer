@@ -1,7 +1,10 @@
-import torch
+import os
+import os.path as osp
 import re
-import os, os.path as osp
+
+import torch
 from torch_geometric.data import DataLoader
+
 
 def save_model(model, ckpt_dir, epoch, device, cover=True, upper=5):
 

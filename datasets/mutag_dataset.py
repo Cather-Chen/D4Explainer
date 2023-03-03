@@ -1,11 +1,11 @@
 import os
 import os.path as osp
-
-import torch
 import random
+
 import numpy as np
 import sklearn.preprocessing as preprocessing
-from torch_geometric.data import InMemoryDataset, download_url, extract_zip, Data
+import torch
+from torch_geometric.data import Data, InMemoryDataset, download_url, extract_zip
 
 
 class Mutagenicity(InMemoryDataset):

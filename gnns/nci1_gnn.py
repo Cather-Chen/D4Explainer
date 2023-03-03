@@ -1,23 +1,32 @@
-import sys
-import time
-import random
 import argparse
 import os
 import os.path as osp
+import random
+import sys
+import time
 
 import torch
 import torch.nn as nn
-from torch.nn import ModuleList
-from torch.nn import Sequential as Seq, ReLU, Linear as Lin, Softmax
+import torch.nn.functional as F
+from torch.nn import Linear as Lin, ModuleList, ReLU, Sequential as Seq, Softmax
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.data import DataLoader
-from torch_geometric.nn import GINEConv, BatchNorm, global_mean_pool, GINConv, GCNConv, LEConv
+from torch_geometric.nn import (
+    BatchNorm,
+    GCNConv,
+    GINConv,
+    GINEConv,
+    LEConv,
+    global_mean_pool,
+)
+
 from datasets import NCI1
-import torch.nn.functional as F
+
 sys.path.append('..')
-from gnns.overloader import overload
 from datasets.mutag_dataset import Mutagenicity
-from utils import set_seed, Gtrain, Gtest
+from gnns.overloader import overload
+from utils import Gtest, Gtrain, set_seed
+
 EPS = 1
 
 def parse_args():

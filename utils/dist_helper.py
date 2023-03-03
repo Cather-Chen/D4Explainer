@@ -5,7 +5,6 @@ import numpy as np
 import pyemd
 from scipy.linalg import toeplitz
 
-
 # NOTES:
 # EMD stands for earth move distance, i.e. Wasserstein metric,
 # (\inf_{\gama \in \Gama(\mu, \nu) \int_{M*M} d(x,y)^p d\gama(x,y))^(1/p)

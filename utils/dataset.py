@@ -1,12 +1,16 @@
-import torch
-import numpy as np
-
 import os
-from gnns import *
+
+import numpy as np
+import torch
+
 from datasets import *
+from gnns import *
+
 if os.path.exists("visual_genome"):
     from datasets.vg_dataset import Visual_Genome
+
 from torch_geometric.datasets import MNISTSuperpixels
+
 
 class MNISTTransform(object):
     

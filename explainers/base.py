@@ -1,7 +1,9 @@
-import os
 import math
+import os
+
 import numpy as np
 import torch
+
 from .visual import *
 
 EPS = 1e-6

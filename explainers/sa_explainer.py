@@ -1,7 +1,9 @@
-from torch.autograd import Variable
-from explainers.base import Explainer
-import torch
 import numpy as np
+import torch
+from torch.autograd import Variable
+
+from explainers.base import Explainer
+
 
 class SAExplainer(Explainer):
 

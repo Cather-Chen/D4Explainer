@@ -1,16 +1,15 @@
-from enum import Enum
-
 import io
 import pickle
-import PIL.Image 
-import numpy as np
-import networkx as nx
+from enum import Enum
 from pathlib import Path
+
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-from PIL import Image, ImageOps
-import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import PIL.Image
 from matplotlib.patches import Rectangle
+from PIL import Image, ImageOps
 
 n_class_dict = {
     'MutagNet': 2, 'Tox21Net': 2, 

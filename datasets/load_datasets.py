@@ -1,16 +1,17 @@
 # From https://github.com/divelab/DIG/blob/main/dig/xgraph/datasets/load_datasets.py
 
-import os
 import glob
 import json
-import torch
-import pickle
-import numpy as np
+import os
 import os.path as osp
+import pickle
+
+import numpy as np
+import torch
+from torch.utils.data import Subset, random_split
+from torch_geometric.data import Data, DataLoader, InMemoryDataset
 from torch_geometric.datasets import MoleculeNet
 from torch_geometric.utils import dense_to_sparse
-from torch.utils.data import random_split, Subset
-from torch_geometric.data import Data, InMemoryDataset, DataLoader
 
 
 def undirected_graph(data):

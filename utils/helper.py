@@ -1,13 +1,13 @@
 import os
+import random
 import sys
 import time
-import torch
-import random
-import numpy as np
-import networkx as nx
-from torch import nn
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import torch
+from torch import nn
 
 
 def set_seed(seed):

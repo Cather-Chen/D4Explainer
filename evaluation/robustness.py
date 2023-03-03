@@ -2,15 +2,20 @@ import argparse
 import copy
 import math
 
+import numpy as np
 import torch
 from torch_geometric.data import DataLoader
-import numpy as np
 from tqdm import tqdm
 
 from explainers import *
 from explainers.base import Explainer as BaseExplainer
 from explainers.diff_explainer import Powerful, sparsity
-from explainers.diffusion.graph_utils import  graph2tensor, gen_list_of_data_single, generate_mask, gen_full
+from explainers.diffusion.graph_utils import (
+    gen_full,
+    gen_list_of_data_single,
+    generate_mask,
+    graph2tensor,
+)
 from gnns import *
 from utils.dataset import get_datasets
 

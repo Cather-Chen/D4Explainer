@@ -1,8 +1,9 @@
 
 from math import sqrt
+
 import torch
-from torch_geometric.nn import MessagePassing
 import torch.nn.functional as F
+from torch_geometric.nn import MessagePassing
 
 EPS = 1e-15
 
@@ -92,9 +93,12 @@ class MetaCFExplainer(torch.nn.Module):
         return f'{self.__class__.__name__}()'
 
 
-from explainers.base import Explainer
-import numpy as np
 import math
+
+import numpy as np
+
+from explainers.base import Explainer
+
 
 class CF_Explainer(Explainer):
 

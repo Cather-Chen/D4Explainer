@@ -1,10 +1,10 @@
-import random
-import numpy as np
 import os.path as osp
 import pickle as pkl
+import random
 
+import numpy as np
 import torch
-from torch_geometric.data import InMemoryDataset, Data
+from torch_geometric.data import Data, InMemoryDataset
 
 
 class BA3Motif(InMemoryDataset):

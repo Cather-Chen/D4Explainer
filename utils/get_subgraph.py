@@ -1,7 +1,8 @@
-import torch
 import math
+
 import numpy as np
-from torch_geometric.utils import (remove_self_loops, degree, batched_negative_sampling)
+import torch
+from torch_geometric.utils import batched_negative_sampling, degree, remove_self_loops
 from torch_geometric.utils.num_nodes import maybe_num_nodes
 
 MAX_DIAM=100
@@ -27,6 +28,8 @@ def split_batch(g):
     return edge_indices, num_nodes, cum_nodes, num_edges, cum_edges
 
 import math
+
+
 def bool_vec(length, r_True, shuffle=True):
     n_True = math.ceil(length * r_True)
     n_False = length - n_True

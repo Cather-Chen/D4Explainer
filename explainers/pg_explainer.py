@@ -1,12 +1,13 @@
 import copy
 import math
-import numpy as np
-from torch_geometric.nn import MessagePassing
-import torch.nn.functional as F
 
+import numpy as np
 import torch
+import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing
+
 from explainers.base import Explainer
+
 from .common import EdgeMaskNet
 
 EPS = 1e-6

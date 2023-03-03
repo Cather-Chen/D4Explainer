@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
 from torch.autograd import Variable
+
 from explainers.base import Explainer
 
 
