@@ -12,9 +12,11 @@ class Logger:
         return Logger.logger
 
     @staticmethod
-    def init_logger(level=logging.INFO,
-                    fmt='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s',
-                    filename: str = None):
+    def init_logger(
+        level=logging.INFO,
+        fmt="%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s",
+        filename: str = None,
+    ):
         logger = logging.getLogger(filename)
         logger.setLevel(level)
 

@@ -3,8 +3,7 @@ import torch
 
 
 def bool2str(array: torch.Tensor):
-    string = ''
+    string = ""
     for i in array.int():
-        string += np.array(['0', '1'])[i]
+        string += np.array(["0", "1"])[i]
     return string
-

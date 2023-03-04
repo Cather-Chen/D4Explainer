@@ -1,4 +1,3 @@
-
 import concurrent.futures
 import copy
 import os
@@ -7,23 +6,14 @@ from datetime import datetime
 
 import networkx as nx
 import numpy as np
-import scipy
 from scipy.linalg import eigvalsh
 
-from utils.dist_helper import (
-    compute_mmd,
-    disc,
-    emd,
-    gaussian,
-    gaussian_emd,
-    gaussian_tv,
-    process_tensor,
-)
+from utils.dist_helper import compute_mmd, gaussian, gaussian_emd, process_tensor
 
-#from torch_geometric.utils import to_networkx
+# from torch_geometric.utils import to_networkx
 
 PRINT_TIME = False
-ORCA_DIR = 'orca'  # the relative path to the orca dir
+ORCA_DIR = "orca"  # the relative path to the orca dir
 
 
 def degree_worker(G):
@@ -36,14 +26,16 @@ def add_tensor(x, y):
 
 
 def degree_stats(graph_ref_list, graph_pred_list, is_parallel=True):
-    ''' Compute the distance between the degree distributions of two unordered sets of graphs.
+    """Compute the distance between the degree distributions of two unordered sets of graphs.
     Args:
       graph_ref_list, graph_target_list: two lists of networkx graphs to be evaluated
-    '''
+    """
     sample_ref = []
     sample_pred = []
     # in case an empty graph is generated
-    graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
+    graph_pred_list_remove_empty = [
+        G for G in graph_pred_list if not G.number_of_nodes() == 0
+    ]
 
     prev = datetime.now()
     if is_parallel:
@@ -64,11 +56,12 @@ def degree_stats(graph_ref_list, graph_pred_list, is_parallel=True):
     mmd_dist = compute_mmd(sample_ref, sample_pred, kernel=gaussian_emd)
     elapsed = datetime.now() - prev
     if PRINT_TIME:
-        print('Time computing degree mmd: ', elapsed)
+        print("Time computing degree mmd: ", elapsed)
     return mmd_dist
 
 
 ###############################################################################
+
 
 def spectral_worker(G):
     # eigs = nx.laplacian_spectrum(G)
@@ -85,10 +78,10 @@ def spectral_worker(G):
 
 
 def spectral_stats(graph_ref_list, graph_pred_list, is_parallel=True):
-    ''' Compute the distance between the degree distributions of two unordered sets of graphs.
+    """Compute the distance between the degree distributions of two unordered sets of graphs.
     Args:
       graph_ref_list, graph_target_list: two lists of networkx graphs to be evaluated
-    '''
+    """
     sample_ref = []
     sample_pred = []
     # in case an empty graph is generated
@@ -102,7 +95,9 @@ def spectral_stats(graph_ref_list, graph_pred_list, is_parallel=True):
             for spectral_density in executor.map(spectral_worker, graph_ref_list):
                 sample_ref.append(spectral_density)
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            for spectral_density in executor.map(spectral_worker, graph_pred_list_remove_empty):
+            for spectral_density in executor.map(
+                spectral_worker, graph_pred_list_remove_empty
+            ):
                 sample_pred.append(spectral_density)
 
         # with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -127,34 +122,40 @@ def spectral_stats(graph_ref_list, graph_pred_list, is_parallel=True):
 
     elapsed = datetime.now() - prev
     if PRINT_TIME:
-        print('Time computing degree mmd: ', elapsed)
+        print("Time computing degree mmd: ", elapsed)
     return mmd_dist
 
 
 ###############################################################################
 
+
 def clustering_worker(param):
     G, bins = param
     clustering_coeffs_list = list(nx.clustering(G).values())
     hist, _ = np.histogram(
-        clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False)
+        clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False
+    )
     return hist
 
 
 def clustering_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=True):
     sample_ref = []
     sample_pred = []
-    graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
+    graph_pred_list_remove_empty = [
+        G for G in graph_pred_list if not G.number_of_nodes() == 0
+    ]
 
     prev = datetime.now()
     if is_parallel:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            for clustering_hist in executor.map(clustering_worker,
-                                                [(G, bins) for G in graph_ref_list]):
+            for clustering_hist in executor.map(
+                clustering_worker, [(G, bins) for G in graph_ref_list]
+            ):
                 sample_ref.append(clustering_hist)
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            for clustering_hist in executor.map(clustering_worker,
-                                                [(G, bins) for G in graph_pred_list_remove_empty]):
+            for clustering_hist in executor.map(
+                clustering_worker, [(G, bins) for G in graph_pred_list_remove_empty]
+            ):
                 sample_pred.append(clustering_hist)
         # check non-zero elements in hist
         # total = 0
@@ -166,28 +167,37 @@ def clustering_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=True
         for i in range(len(graph_ref_list)):
             clustering_coeffs_list = list(nx.clustering(graph_ref_list[i]).values())
             hist, _ = np.histogram(
-                clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False)
+                clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False
+            )
             sample_ref.append(hist)
 
         for i in range(len(graph_pred_list_remove_empty)):
-            clustering_coeffs_list = list(nx.clustering(graph_pred_list_remove_empty[i]).values())
+            clustering_coeffs_list = list(
+                nx.clustering(graph_pred_list_remove_empty[i]).values()
+            )
             hist, _ = np.histogram(
-                clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False)
+                clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False
+            )
             sample_pred.append(hist)
-    mmd_dist = compute_mmd(sample_ref, sample_pred, kernel=gaussian_emd,
-                           sigma=1.0 / 10, distance_scaling=bins)
+    mmd_dist = compute_mmd(
+        sample_ref,
+        sample_pred,
+        kernel=gaussian_emd,
+        sigma=1.0 / 10,
+        distance_scaling=bins,
+    )
     elapsed = datetime.now() - prev
     if PRINT_TIME:
-        print('Time computing clustering mmd: ', elapsed)
+        print("Time computing clustering mmd: ", elapsed)
     return mmd_dist
 
 
 # maps motif/orbit name string to its corresponding list of indices from orca output
 motif_to_indices = {
-    '3path': [1, 2],
-    '4cycle': [8],
+    "3path": [1, 2],
+    "4cycle": [8],
 }
-COUNT_START_STR = 'orbit counts: \n'
+COUNT_START_STR = "orbit counts: \n"
 
 
 def edge_list_reindexed(G):
@@ -198,25 +208,31 @@ def edge_list_reindexed(G):
         idx += 1
 
     edges = []
-    for (u, v) in G.edges():
+    for u, v in G.edges():
         edges.append((id2idx[str(u)], id2idx[str(v)]))
     return edges
 
 
 def orca(graph):
-    tmp_file_path = os.path.join(ORCA_DIR, 'tmp.txt')
-    f = open(tmp_file_path, 'w')
-    f.write(str(graph.number_of_nodes()) + ' ' + str(graph.number_of_edges()) + '\n')
-    for (u, v) in edge_list_reindexed(graph):
-        f.write(str(u) + ' ' + str(v) + '\n')
+    tmp_file_path = os.path.join(ORCA_DIR, "tmp.txt")
+    f = open(tmp_file_path, "w")
+    f.write(str(graph.number_of_nodes()) + " " + str(graph.number_of_edges()) + "\n")
+    for u, v in edge_list_reindexed(graph):
+        f.write(str(u) + " " + str(v) + "\n")
     f.close()
 
-    output = sp.check_output([os.path.join(ORCA_DIR, 'orca'), 'node', '4', tmp_file_path, 'std'])
-    output = output.decode('utf8').strip()
+    output = sp.check_output(
+        [os.path.join(ORCA_DIR, "orca"), "node", "4", tmp_file_path, "std"]
+    )
+    output = output.decode("utf8").strip()
     idx = output.find(COUNT_START_STR) + len(COUNT_START_STR)
     output = output[idx:]
-    node_orbit_counts = np.array([list(map(int, node_cnts.strip().split(' ')))
-                                  for node_cnts in output.strip('\n').split('\n')])
+    node_orbit_counts = np.array(
+        [
+            list(map(int, node_cnts.strip().split(" ")))
+            for node_cnts in output.strip("\n").split("\n")
+        ]
+    )
     """
     try:
         os.remove(tmp_file_path)
@@ -253,8 +269,9 @@ def orbit_stats_all(graph_ref_list, graph_pred_list):
 
     total_counts_ref = np.array(total_counts_ref)
     total_counts_pred = np.array(total_counts_pred)
-    mmd_dist = compute_mmd(total_counts_ref, total_counts_pred, kernel=gaussian,
-                           is_hist=False, sigma=30.0)
+    mmd_dist = compute_mmd(
+        total_counts_ref, total_counts_pred, kernel=gaussian, is_hist=False, sigma=30.0
+    )
 
     # print('-------------------------')
     # print(np.sum(total_counts_ref, axis=0) / len(total_counts_ref))
@@ -292,11 +309,11 @@ def is_lobster_graph(G):
     Check a given graph is a lobster graph or not
     Removing leaf nodes twice:
     lobster -> caterpillar -> path
-  """
-    ### Check if G is a tree
+    """
+    # Check if G is a tree
     if nx.is_tree(G):
         # import pdb; pdb.set_trace()
-        ### Check if G is a path after removing leaves twice
+        # Check if G is a path after removing leaves twice
         leaves = [n for n, d in G.degree() if d == 1]
         G.remove_nodes_from(leaves)
 
@@ -318,10 +335,10 @@ def is_lobster_graph(G):
 
 
 METHOD_NAME_TO_FUNC = {
-    'degree': degree_stats,
-    'cluster': clustering_stats,
-    'orbit': orbit_stats_all,
-    'spectral': spectral_stats
+    "degree": degree_stats,
+    "cluster": clustering_stats,
+    "orbit": orbit_stats_all,
+    "spectral": spectral_stats,
 }
 
 
@@ -334,11 +351,11 @@ def eval_torch_batch(ref_batch, pred_batch, methods=None):
 
 def eval_graph_list(graph_ref_list, grad_pred_list, methods=None):
     if methods is None:
-        methods = ['degree', 'cluster',"spectral", 'orbit']
+        methods = ["degree", "cluster", "spectral", "orbit"]
     results = {}
     for method in methods:
         results[method] = METHOD_NAME_TO_FUNC[method](graph_ref_list, grad_pred_list)
     if "orbit" not in methods:
-        results["orbit"]=0.0
+        results["orbit"] = 0.0
     print(results)
     return results

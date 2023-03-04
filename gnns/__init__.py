@@ -1,5 +1,3 @@
-
-# from .mnist_gnn import MNISTNet
 from .ba3motif_gnn import BA3MotifNet, BA3MotifNet_attr
 from .bbbp_gnn import BBBP_GCN, BBBP_GCN_attr
 from .mutag_gnn import Mutag_GCN

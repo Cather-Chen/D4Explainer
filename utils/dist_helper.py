@@ -29,7 +29,7 @@ def l2(x, y):
 
 
 def gaussian_emd(x, y, sigma=1.0, distance_scaling=1.0):
-    """ Gaussian kernel with squared distance in exponential term replaced by EMD
+    """Gaussian kernel with squared distance in exponential term replaced by EMD
     Args:
       x, y: 1D pmf of two distributions with the same support
       sigma: standard deviation
@@ -68,9 +68,8 @@ def kernel_parallel_worker(t):
 
 
 def disc(samples1, samples2, kernel, is_parallel=True, *args, **kwargs):
-    """ Discrepancy between 2 samples
-    """
-    ##commented out since it produces: OSError: [Errno 12] Cannot allocate memory
+    """Discrepancy between 2 samples"""
+    # commented out since it produces: OSError: [Errno 12] Cannot allocate memory
 
     d = 0
     if not is_parallel:
@@ -79,19 +78,20 @@ def disc(samples1, samples2, kernel, is_parallel=True, *args, **kwargs):
                 d += kernel(s1, s2, *args, **kwargs)
     else:
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for dist in executor.map(kernel_parallel_worker,
-                                     [(s1, samples2, partial(kernel, *args, **kwargs)) for s1 in samples1]):
+            for dist in executor.map(
+                kernel_parallel_worker,
+                [(s1, samples2, partial(kernel, *args, **kwargs)) for s1 in samples1],
+            ):
                 d += dist
     if len(samples1) * len(samples2) > 0:
         d /= len(samples1) * len(samples2)
     else:
-        d = 1e+6
+        d = 1e6
     return d
 
 
 def compute_mmd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
-    """ MMD between two samples
-    """
+    """MMD between two samples"""
     # normalize histograms into pmf
     if is_hist:
         samples1 = [s1 / np.sum(s1) for s1 in samples1]
@@ -103,14 +103,15 @@ def compute_mmd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
     # print('--------------------------')
     # print('cross: ', disc(samples1, samples2, kernel, *args, **kwargs))
     # print('===============================')
-    return disc(samples1, samples1, kernel, *args, **kwargs) + \
-           disc(samples2, samples2, kernel, *args, **kwargs) - \
-           2 * disc(samples1, samples2, kernel, *args, **kwargs)
+    return (
+        disc(samples1, samples1, kernel, *args, **kwargs)
+        + disc(samples2, samples2, kernel, *args, **kwargs)
+        - 2 * disc(samples1, samples2, kernel, *args, **kwargs)
+    )
 
 
 def compute_emd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
-    """ EMD between average of two samples
-    """
+    """EMD between average of two samples"""
 
     # normalize histograms into pmf
     if is_hist:
@@ -143,14 +144,22 @@ def test():
     #                                                      is_parallel=False, sigma=1.0))
     # print('between samples1 and samples3: ', compute_emd(samples1, samples3, kernel=gaussian_emd,
     #                                                      is_parallel=False, sigma=1.0))
-    print('between samples1 and samples2: ', compute_mmd(samples1, samples2, kernel=gaussian,
-                                                         is_parallel=True, sigma=1.0))
-    print('between samples1 and samples3: ', compute_mmd(samples1, samples3, kernel=gaussian,
-                                                         is_parallel=True, sigma=1.0))
-    print('between samples1 and samples2: ', compute_mmd(samples1, samples2, kernel=gaussian,
-                                                         is_parallel=True, sigma=1.0))
-    print('between samples1 and samples3: ', compute_mmd(samples1, samples3, kernel=gaussian,
-                                                         is_parallel=True, sigma=1.0))
+    print(
+        "between samples1 and samples2: ",
+        compute_mmd(samples1, samples2, kernel=gaussian, is_parallel=True, sigma=1.0),
+    )
+    print(
+        "between samples1 and samples3: ",
+        compute_mmd(samples1, samples3, kernel=gaussian, is_parallel=True, sigma=1.0),
+    )
+    print(
+        "between samples1 and samples2: ",
+        compute_mmd(samples1, samples2, kernel=gaussian, is_parallel=True, sigma=1.0),
+    )
+    print(
+        "between samples1 and samples3: ",
+        compute_mmd(samples1, samples3, kernel=gaussian, is_parallel=True, sigma=1.0),
+    )
 
 
 def process_tensor(x, y):
@@ -160,4 +169,3 @@ def process_tensor(x, y):
     elif len(y) < len(x):
         y = np.hstack((y, [0.0] * (support_size - len(y))))
     return x, y
-

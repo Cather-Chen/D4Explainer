@@ -7,25 +7,24 @@ from torch_geometric.nn import ARMAConv, BatchNorm
 
 
 class MLP(nn.Module):
-
     def __init__(self, in_channels, hidden_channels, out_channels, act=nn.Tanh()):
         super(MLP, self).__init__()
-        self.mlp = nn.Sequential(OrderedDict([
-                ('lin1', Lin(in_channels, hidden_channels)),
-                ('act', act),
-                ('lin2', Lin(hidden_channels, out_channels))
-                ]))
-     
+        self.mlp = nn.Sequential(
+            OrderedDict(
+                [
+                    ("lin1", Lin(in_channels, hidden_channels)),
+                    ("act", act),
+                    ("lin2", Lin(hidden_channels, out_channels)),
+                ]
+            )
+        )
+
     def forward(self, x):
         return self.mlp(x)
 
 
 class EdgeMaskNet(torch.nn.Module):
-
-    def __init__(self,
-                 n_in_channels,
-                 e_in_channels,
-                 hid=72, n_layers=3):
+    def __init__(self, n_in_channels, e_in_channels, hid=72, n_layers=3):
         super(EdgeMaskNet, self).__init__()
 
         self.node_lin = Lin(n_in_channels, hid)
@@ -43,9 +42,8 @@ class EdgeMaskNet(torch.nn.Module):
         else:
             self.mlp = MLP(2 * hid, hid, 1)
         self._initialize_weights()
-        
-    def forward(self, x, edge_index, edge_attr=None):
 
+    def forward(self, x, edge_index, edge_attr=None):
         x = torch.flatten(x, 1, -1)
         x = F.relu(self.node_lin(x))
         for conv, batch_norm in zip(self.convs, self.batch_norms):
@@ -62,9 +60,9 @@ class EdgeMaskNet(torch.nn.Module):
         return self.mlp(e)
 
     def __repr__(self):
-        return f'{self.__class__.__name__}()'
+        return f"{self.__class__.__name__}()"
 
     def _initialize_weights(self):
-            for m in self.modules():
-                if isinstance(m, nn.Linear):
-                    nn.init.xavier_uniform_(m.weight) 
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)

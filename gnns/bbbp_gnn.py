@@ -1,41 +1,21 @@
 import argparse
 import os
 import os.path as osp
-import random
-import sys
 import time
 
 import torch
 import torch.nn as nn
-from torch.nn import Linear as Lin, ModuleList, ReLU, Sequential as Seq, Softmax
+import torch.nn.functional as F
+from torch.nn import Linear as Lin, ModuleList, ReLU, Softmax
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.data import DataLoader
-from torch_geometric.nn import (
-    BatchNorm,
-    GATConv,
-    GCNConv,
-    GINConv,
-    GINEConv,
-    global_mean_pool,
-)
-
-from utils import Gtest, Gtrain, set_seed
-
-sys.path.append('..')
-import torch.nn.functional as F
+from torch_geometric.nn import BatchNorm, GCNConv, global_mean_pool
 
 from datasets import bbbp
-from datasets.mutag_dataset import Mutagenicity
-from gnns.overloader import overload
-from utils import set_seed
+from utils import Gtest, Gtrain, set_seed
 
 
-def _Gtrain(train_loader,
-           model,
-           optimizer,
-           device,
-           criterion
-           ):
+def _Gtrain(train_loader, model, optimizer, device, criterion):
     model.train()
     loss_all = 0
     criterion = criterion
@@ -43,9 +23,7 @@ def _Gtrain(train_loader,
     for data in train_loader:
         data.to(device)
         optimizer.zero_grad()
-        out = model(data.x,
-                    data.edge_index,
-                    data.batch)
+        out = model(data.x, data.edge_index, data.batch)
         loss = criterion(out, data.y)
         loss.backward()
         loss_all += loss.item() * data.num_graphs
@@ -54,51 +32,57 @@ def _Gtrain(train_loader,
     return loss_all / len(train_loader.dataset)
 
 
-def _Gtest(test_loader,
-          model,
-          device,
-          criterion
-          ):
-
+def _Gtest(test_loader, model, device, criterion):
     model.eval()
     error = 0
     correct = 0
 
     with torch.no_grad():
-
         for data in test_loader:
             data = data.to(device)
-            output = model(data.x,
-                           data.edge_index,
-                           data.batch,
-                           )
+            output = model(
+                data.x,
+                data.edge_index,
+                data.batch,
+            )
 
             error += criterion(output, data.y) * data.num_graphs
             correct += float(output.argmax(dim=1).eq(data.y).sum().item())
 
         return error / len(test_loader.dataset), correct / len(test_loader.dataset)
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Train bbbp Model")
 
-    parser.add_argument('--model_path', nargs='?', default=osp.join(osp.dirname(__file__), 'param', 'gnns'),
-                        help='path for saving trained model.')
-    parser.add_argument('--cuda', type=int, default=6,
-                        help='GPU device.')
-    parser.add_argument('--epoch', type=int, default=300,
-                        help='Number of epoch.')
-    parser.add_argument('--lr', type=float, default=1e-3,
-                        help='Learning rate.')
-    parser.add_argument('--batch_size', type=int, default=128,
-                        help='Batch size.')
-    parser.add_argument('--verbose', type=int, default=10,
-                        help='Interval of evaluation.')
-    parser.add_argument('--num_unit', type=int, default=4,
-                        help='number of Convolution layers(units)')
-    parser.add_argument('--random_label', type=bool, default=False,
-                        help='train a model under label randomization for sanity check')
-    parser.add_argument('--with_attr', type=bool, default=False,
-                        help='train a model with edge attributes')
+    parser.add_argument(
+        "--model_path",
+        nargs="?",
+        default=osp.join(osp.dirname(__file__), "param", "gnns"),
+        help="path for saving trained model.",
+    )
+    parser.add_argument("--cuda", type=int, default=6, help="GPU device.")
+    parser.add_argument("--epoch", type=int, default=300, help="Number of epoch.")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
+    parser.add_argument(
+        "--verbose", type=int, default=10, help="Interval of evaluation."
+    )
+    parser.add_argument(
+        "--num_unit", type=int, default=4, help="number of Convolution layers(units)"
+    )
+    parser.add_argument(
+        "--random_label",
+        type=bool,
+        default=False,
+        help="train a model under label randomization for sanity check",
+    )
+    parser.add_argument(
+        "--with_attr",
+        type=bool,
+        default=False,
+        help="train a model with edge attributes",
+    )
 
     return parser.parse_args()
 
@@ -119,18 +103,16 @@ class BBBP_GCN(torch.nn.Module):
         self.relus.extend([ReLU()] * conv_unit)
         self.edge_emb = Lin(3, 128)
         # self.lin1 = Lin(128, 128)
-        self.ffn = nn.Sequential(*(
-                [nn.Linear(128, 128)] +
-                [ReLU(), nn.Dropout(), nn.Linear(128, 2)]
-        ))
+        self.ffn = nn.Sequential(
+            *([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)])
+        )
 
         self.softmax = Softmax(dim=1)
 
     def forward(self, x, edge_index, batch):
         edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
         # edge_weight = self.edge_emb(edge_attr).squeeze(-1)
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             # x = ReLU(batch_norm(x))
             x = ReLU(x)
@@ -141,8 +123,7 @@ class BBBP_GCN(torch.nn.Module):
 
     def get_node_reps(self, x, edge_index):
         edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
             # x = ReLU(batch_norm(x))
             x = ReLU(x)
@@ -169,8 +150,7 @@ class BBBP_GCN(torch.nn.Module):
     def get_pred_explain(self, x, edge_index, edge_mask, batch):
         edge_mask = edge_mask.sigmoid()
         # edge_weight = edge_mask.unsqueeze(-1).repeat(1, 128)
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_mask)
             x = ReLU(x)
         node_x = x
@@ -183,7 +163,6 @@ class BBBP_GCN(torch.nn.Module):
         with torch.no_grad():
             for param in self.parameters():
                 param.uniform_(-1.0, 1.0)
-
 
 
 class BBBP_GCN_attr(torch.nn.Module):
@@ -201,16 +180,18 @@ class BBBP_GCN_attr(torch.nn.Module):
         self.batch_norms.extend([BatchNorm(128)] * conv_unit)
         self.relus.extend([ReLU()] * conv_unit)
         # self.lin1 = Lin(128, 128)
-        self.ffn = nn.Sequential(*(
-                [nn.Linear(128, 128)] +
-                [ReLU(), nn.Dropout(), nn.Linear(128, 2)]
-        ))
+        self.ffn = nn.Sequential(
+            *([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)])
+        )
         self.softmax = Softmax(dim=1)
 
     def forward(self, x, edge_index, edge_attr, batch):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr == None else edge_attr
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        edge_weight = (
+            torch.ones((edge_index.size(1),), device=edge_index.device)
+            if edge_attr is None
+            else edge_attr
+        )
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             # x = ReLU(batch_norm(x))
             x = ReLU(x)
@@ -221,9 +202,12 @@ class BBBP_GCN_attr(torch.nn.Module):
         return pred
 
     def get_pred(self, x, edge_index, edge_attr, batch):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr == None else edge_attr
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        edge_weight = (
+            torch.ones((edge_index.size(1),), device=edge_index.device)
+            if edge_attr == None
+            else edge_attr
+        )
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
             # x = ReLU(batch_norm(x))
             x = ReLU(x)
@@ -234,11 +218,13 @@ class BBBP_GCN_attr(torch.nn.Module):
         self.readout = self.softmax(pred)
         return self.readout, pred
 
-
     def get_emb(self, x, edge_index, edge_attr, batch):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr == None else edge_attr
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        edge_weight = (
+            torch.ones((edge_index.size(1),), device=edge_index.device)
+            if edge_attr == None
+            else edge_attr
+        )
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
             # x = ReLU(batch_norm(x))
             x = ReLU(x)
@@ -253,8 +239,7 @@ class BBBP_GCN_attr(torch.nn.Module):
         edge_mask = edge_mask.sigmoid()
         edge_mask = edge_mask * edge_attr
         # edge_weight = edge_mask.unsqueeze(-1).repeat(1, 128)
-        for conv, batch_norm, ReLU in \
-                zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_mask)
             x = ReLU(x)
         x = F.dropout(x, p=0.4)
@@ -270,66 +255,51 @@ class BBBP_GCN_attr(torch.nn.Module):
                 param.uniform_(-1.0, 1.0)
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     set_seed(0)
     args = parse_args()
     device = torch.device(f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu")
     # folder = os.path.join("data", 'bbbp')
-    folder = osp.join(osp.dirname(__file__), '..', 'data', 'bbbp')
+    folder = osp.join(osp.dirname(__file__), "..", "data", "bbbp")
     dataset = bbbp(folder)
     test_dataset = dataset[:200]
     val_dataset = dataset[200:400]
     train_dataset = dataset[400:]
     # train_dataset, val_dataset, test_dataset = get_datasets(name="bbbp", root="data/")
 
-    test_loader = DataLoader(test_dataset,
-                             batch_size=args.batch_size,
-                             shuffle=False
-                             )
-    val_loader = DataLoader(val_dataset,
-                            batch_size=args.batch_size,
-                            shuffle=False
-                            )
-    train_loader = DataLoader(train_dataset,
-                              batch_size=args.batch_size,
-                              shuffle=True
-                              )
-    model = BBBP_GCN_attr(args.num_unit).to(device) if args.with_attr else BBBP_GCN(args.num_unit).to(device)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    model = (
+        BBBP_GCN_attr(args.num_unit).to(device)
+        if args.with_attr
+        else BBBP_GCN(args.num_unit).to(device)
+    )
 
-    optimizer = torch.optim.Adam(model.parameters(),
-                                 lr=args.lr
-                                 )
-    scheduler = ReduceLROnPlateau(optimizer,
-                                  mode='min',
-                                  factor=0.8,
-                                  patience=10,
-                                  min_lr=1e-5
-                                  )
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5
+    )
     min_error = None
     for epoch in range(1, args.epoch + 1):
-
         t1 = time.time()
-        lr = scheduler.optimizer.param_groups[0]['lr']
+        lr = scheduler.optimizer.param_groups[0]["lr"]
 
-        loss = Gtrain(train_loader,
-                      model,
-                      optimizer,
-                      device=device,
-                      criterion=nn.CrossEntropyLoss()
-                      )
+        loss = Gtrain(
+            train_loader,
+            model,
+            optimizer,
+            device=device,
+            criterion=nn.CrossEntropyLoss(),
+        )
 
-        _, train_acc = Gtest(train_loader,
-                             model,
-                             device=device,
-                             criterion=nn.CrossEntropyLoss()
-                             )
+        _, train_acc = Gtest(
+            train_loader, model, device=device, criterion=nn.CrossEntropyLoss()
+        )
 
-        val_error, val_acc = Gtest(val_loader,
-                                   model,
-                                   device=device,
-                                   criterion=nn.CrossEntropyLoss()
-                                   )
+        val_error, val_acc = Gtest(
+            val_loader, model, device=device, criterion=nn.CrossEntropyLoss()
+        )
         scheduler.step(val_error)
         if min_error is None or val_error <= min_error:
             min_error = val_error
@@ -337,23 +307,29 @@ if __name__ == '__main__':
         t2 = time.time()
 
         if epoch % args.verbose == 0:
-            test_error, test_acc = Gtest(test_loader,
-                                         model,
-                                         device=device,
-                                         criterion=nn.CrossEntropyLoss()
-                                         )
+            test_error, test_acc = Gtest(
+                test_loader, model, device=device, criterion=nn.CrossEntropyLoss()
+            )
             t3 = time.time()
-            print('Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Test Loss: {:.5f}, '
-                  'Test acc: {:.5f}'.format(epoch, t3 - t1, lr, loss, test_error, test_acc))
+            print(
+                "Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Test Loss: {:.5f}, "
+                "Test acc: {:.5f}".format(
+                    epoch, t3 - t1, lr, loss, test_error, test_acc
+                )
+            )
             continue
 
-        print('Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Train acc: {:.5f}, Validation Loss: {:.5f}, '
-              'Validation acc: {:5f}'.format(epoch, t2 - t1, lr, loss, train_acc, val_error, val_acc))
+        print(
+            "Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Train acc: {:.5f}, Validation Loss: {:.5f}, "
+            "Validation acc: {:5f}".format(
+                epoch, t2 - t1, lr, loss, train_acc, val_error, val_acc
+            )
+        )
 
     if args.with_attr:
-        save_path = 'bbbp_gcn_attr.pt'
+        save_path = "bbbp_gcn_attr.pt"
     else:
-        save_path = 'bbbp_gcn.pt'
+        save_path = "bbbp_gcn.pt"
 
     if not osp.exists(args.model_path):
         os.makedirs(args.model_path)

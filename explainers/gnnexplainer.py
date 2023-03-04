@@ -3,19 +3,13 @@ from explainers.meta_gnnexplainer import MetaGNNGExplainer
 
 
 class GNNExplainer(Explainer):
-
     def __init__(self, device, gnn_model_path, task):
         super(GNNExplainer, self).__init__(device, gnn_model_path, task)
-        
-    def explain_graph(self, graph,
-                      model=None,
-                      epochs=100,
-                      lr=1e-2,
-                      draw_graph=0,
-                      vis_ratio=0.2
-                      ):
 
-        if model == None:
+    def explain_graph(
+        self, graph, model=None, epochs=100, lr=1e-2, draw_graph=0, vis_ratio=0.2
+    ):
+        if model is None:
             model = self.model
 
         explainer = MetaGNNGExplainer(model, epochs=epochs, lr=lr, task=self.task)
