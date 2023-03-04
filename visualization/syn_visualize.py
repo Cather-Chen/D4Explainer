@@ -9,29 +9,25 @@ from torch_geometric.data import DataLoader
 from torch_geometric.utils import dense_to_sparse, to_dense_adj
 from tqdm import tqdm
 
-from explainers import *
-from explainers.visual import *
-from gnns import *
+from explainers import (
+    DiffExplainer,
+    CF_Explainer,
+    CXPlain,
+    GNNExplainer,
+    PGExplainer,
+    PGMExplainer,
+)
+from explainers.visual import vis_dict
 from utils.dataset import get_datasets
 
-feature_dict = {
-    "BA_shapes": 10,
-    "Tree_Cycle": 10,
-    "Tree_Grids": 10,
-    "mutag": 14,
-    "ba3": 4,
-    "bbbp": 9,
-    "NCI1": 37,
-}
-task_type = {
-    "BA_shapes": "nc",
-    "Tree_Cycle": "nc",
-    "Tree_Grids": "nc",
-    "mutag": "gc",
-    "ba3": "gc",
-    "bbbp": "gc",
-    "NCI1": "gc",
-}
+from constants import task_type, feature_dict, add_dataset_args, add_explainer_args
+
+from pathlib import Path
+import os
+
+Explainer = (
+    GNNExplainer | PGExplainer | PGMExplainer | CXPlain | CF_Explainer | DiffExplainer
+)
 
 
 def parse_args():
@@ -40,32 +36,8 @@ def parse_args():
     parser.add_argument(
         "--root", type=str, default="results/", help="Result directory."
     )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="BA_shapes",
-        choices=[
-            "BA_shapes",
-            "Tree_Cycle",
-            "Tree_Grids",
-            "mutag",
-            "ba3",
-            "bbbp",
-            "NCI1",
-        ],
-    )
-    parser.add_argument(
-        "--explainer",
-        type=str,
-        default="CXPlain",
-        choices=[
-            "GNNExplainer",
-            "PGExplainer",
-            "PGMExplainer",
-            "CXPlain",
-            "CF_Explainer",
-        ],
-    )
+    parser = add_dataset_args(parser)
+    parser = add_explainer_args(parser)
     # gflow explainer related parameters
     parser.add_argument("--gnn_type", type=str, default="gcn")
     parser.add_argument("--task", type=str, default="nc")
@@ -74,15 +46,15 @@ def parse_args():
     parser.add_argument("--num_end", type=int, default=-1)
     # for mutagNet:
     parser.add_argument("--normalization", type=str, default="instance")
-    parser.add_argument("--num_layers", type=int, default=6)  ####
+    parser.add_argument("--num_layers", type=int, default=6)
     parser.add_argument("--layers_per_conv", type=int, default=1)
     parser.add_argument("--sigma_length", type=int, default=5)
     parser.add_argument("--feature_in", type=int)
-    parser.add_argument("--n_hidden", type=int, default=64)  ####
+    parser.add_argument("--n_hidden", type=int, default=64)
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--dropout", type=float, default=0.001)
     parser.add_argument("--prob_low", type=float, default=0.0)
-    parser.add_argument("--prob_high", type=float, default=0.2)  ####
+    parser.add_argument("--prob_high", type=float, default=0.2)
     parser.add_argument("--cat_output", type=bool, default=True)
     parser.add_argument("--residual", type=bool, default=False)
     parser.add_argument("--noise_mlp", type=bool, default=True)
@@ -114,7 +86,7 @@ def visualize(
         idx = np.argsort(-edge_imp)[:topk]
     else:
         topk = min(max(math.ceil(vis_ratio * graph.num_edges), 1), graph.num_edges)
-        if args.if_cf == False:
+        if not args.if_cf:
             idx = np.argsort(-edge_imp)[:topk]
         else:
             idx = np.argsort(-edge_imp)[topk:]
@@ -129,8 +101,6 @@ def visualize(
         os.makedirs(folder)
     edge_pos_mask = np.zeros(graph.num_edges, dtype=np.bool_)
     edge_pos_mask[idx] = True
-    # print(edge_pos_mask, graph.x.size(0))
-    vmax = sum(edge_pos_mask)
     node_pos_mask = np.zeros(graph.num_nodes, dtype=np.bool_)
     node_neg_mask = np.zeros(graph.num_nodes, dtype=np.bool_)
     node_pos_idx = np.unique(graph.edge_index[:, edge_pos_mask].cpu().numpy()).tolist()
@@ -139,7 +109,7 @@ def visualize(
     node_neg_mask[node_neg_idx] = True
     node_idxs = {k: int(v) for k, v in enumerate(list(graph.y.cpu().numpy()))}
     node_color = ["lemonchiffon", "lightgreen", "azure", "pink"]
-    central_id = [torch.where(graph.mapping == True)[0].item()]
+    central_id = [torch.where(graph.mapping)[0].item()]
     colors = [node_color[v % len(node_color)] for k, v in node_idxs.items()]
     pos = nx.spring_layout(G)
     fig = plt.figure(figsize=(24, 6))
@@ -289,7 +259,6 @@ def visualize(
     plt.show()
 
 
-ex = "CF_Explainer"
 mr = 0.3
 args = parse_args()
 args.device = torch.device(f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu")
@@ -304,24 +273,23 @@ test_loader = DataLoader(
     drop_last=False,
 )
 gnn_path = f"param/gnns/{args.dataset}_{args.gnn_type}.pt"
-args.explainer = ex
 if args.explainer in ["PGExplainer"]:
-    exec(
-        f"Explainer = {args.explainer}(args.device, gnn_path, task=args.task, n_in_channels=args.feature_in)"
+    explainer: Explainer = eval(args.explainer)(
+        args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
     )
 else:
-    exec(f"Explainer = {args.explainer}(args.device, gnn_path, task=args.task)")
+    explainer: Explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
 diff_e = DiffExplainer(args.device, gnn_path)
 for graph in tqdm(iter(test_loader), total=len(test_loader)):
     y = graph.y if args.task == "gc" else graph.self_y
     if y != 0:
         graph.to(args.device)
-        edge_imp = Explainer.explain_graph(graph)
-        exp_subgraph = Explainer.pack_explanatory_subgraph(
+        edge_imp = explainer.explain_graph(graph)
+        exp_subgraph = explainer.pack_explanatory_subgraph(
             top_ratio=mr, graph=graph, imp=edge_imp, if_cf=True
         )
         if args.task == "nc":
-            output_prob, _ = Explainer.model.get_node_pred_subgraph(
+            output_prob, _ = explainer.model.get_node_pred_subgraph(
                 x=exp_subgraph.x,
                 edge_index=exp_subgraph.edge_index,
                 mapping=exp_subgraph.mapping,
@@ -339,7 +307,7 @@ for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph,
             edge_imp,
             edge_index_diff,
-            explainer=ex,
+            explainer=args.explainer,
             dataset=args.dataset,
             vis_ratio=mr,
             modification_ratio=modif_r,

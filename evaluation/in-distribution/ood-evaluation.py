@@ -70,7 +70,7 @@ for dataset in dataset_choices:
         print(f"-------{dataset} with {ex}----------")
         test_graph = []
         pred_graph = []
-        if ex in ["PGExplainer"]:
+        if ex in [PGExplainer]:
             explainer = ex(
                 args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
             )
