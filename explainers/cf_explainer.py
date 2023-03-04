@@ -72,17 +72,17 @@ class MetaCFExplainer(torch.nn.Module):
         self.to(graph.x.device)
         optimizer = torch.optim.Adam([self.edge_mask], lr=self.lr)
 
-        for epoch in range(1, self.epochs + 1):
+        for _ in range(self.epochs):
             optimizer.zero_grad()
             if self.task == "nc":
-                output_prob, output_repr = self.model.get_pred_explain(
+                _, output_repr = self.model.get_pred_explain(
                     x=graph.x,
                     edge_index=graph.edge_index,
                     edge_mask=self.edge_mask,
                     mapping=graph.mapping,
                 )
             else:
-                output_prob, output_repr = self.model.get_pred_explain(
+                _, output_repr = self.model.get_pred_explain(
                     x=graph.x,
                     edge_index=graph.edge_index,
                     edge_mask=self.edge_mask,
@@ -141,7 +141,7 @@ class CF_Explainer(Explainer):
             top_idx = torch.cat([top_idx, edge_indicator[Gi_pos_edge_idx]])
         try:
             exp_subgraph.edge_attr = graph.edge_attr[top_idx]
-        except:
+        except Exception:
             pass
         exp_subgraph.edge_index = graph.edge_index[:, top_idx]
         # .... the nodes.

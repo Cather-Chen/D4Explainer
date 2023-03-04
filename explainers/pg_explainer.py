@@ -244,7 +244,7 @@ class PGExplainer(Explainer):
             top_idx = torch.cat([top_idx, edge_indicator[Gi_pos_edge_idx]])
         try:
             exp_subgraph.edge_attr = graph.edge_attr[top_idx]
-        except:
+        except Exception:
             pass
         exp_subgraph.edge_index = graph.edge_index[:, top_idx]
         # .... the nodes.

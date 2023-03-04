@@ -84,7 +84,7 @@ class MetaGNNGExplainer(torch.nn.Module):
         self.to(graph.x.device)
         optimizer = torch.optim.Adam([self.edge_mask], lr=self.lr)
 
-        for epoch in range(1, self.epochs + 1):
+        for _ in range(self.epochs):
             optimizer.zero_grad()
             if self.task == "nc":
                 output_prob, output_repr = self.model.get_pred_explain(
@@ -94,7 +94,7 @@ class MetaGNNGExplainer(torch.nn.Module):
                     mapping=graph.mapping,
                 )
             else:
-                output_prob, output_repr = self.model.get_pred_explain(
+                _, output_repr = self.model.get_pred_explain(
                     x=graph.x,
                     edge_index=graph.edge_index,
                     edge_mask=self.edge_mask,

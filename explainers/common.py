@@ -52,11 +52,6 @@ class EdgeMaskNet(torch.nn.Module):
 
         e = torch.cat([x[edge_index[0, :]], x[edge_index[1, :]]], dim=1)
 
-        # if edge_attr.size(-1) > 1:
-        #     e1 = self.edge_lin1(e)
-        #     e2 = self.edge_lin2(edge_attr)
-        #     e = torch.cat([e1, e2], dim=1)  # connection
-
         return self.mlp(e)
 
     def __repr__(self):

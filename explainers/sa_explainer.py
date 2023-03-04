@@ -11,7 +11,7 @@ class SAExplainer(Explainer):
         self.ds = ds
 
     def explain_graph(self, graph, model=None, draw_graph=0, vis_ratio=0.2):
-        if model == None:
+        if model is None:
             model = self.model
         y = graph.y if self.task == "gc" else graph.self_y
         tmp_graph = graph.clone()
@@ -104,7 +104,7 @@ class SAExplainer(Explainer):
                 .numpy()
             )
             labels = torch.LongTensor([[i] for i in y_pred]).to(y_pred.device)
-            if if_cf == False:
+            if not if_cf:
                 res_fid = (
                     soft_pred.gather(1, labels)
                     .detach()

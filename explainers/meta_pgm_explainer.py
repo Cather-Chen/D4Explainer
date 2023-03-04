@@ -77,13 +77,6 @@ class MetaPGMExplainer:
                             perturb_array[i] = perturb_array[i] + np.random.uniform(
                                 low=-eps, high=eps
                             )
-                            # if perturb_array[i] < 0:
-                            #     perturb_array[i] = 0
-
-                            # else:
-                            #     _max = torch.max(self.X_feat, dim=0).values[i]
-                            #     if perturb_array[i] > _max:
-                            #         perturb_array[i] = _max
 
         X_perturb[node_idx] = perturb_array
 
@@ -167,7 +160,7 @@ class MetaPGMExplainer:
     ):
         num_nodes = self.X_feat.size(0)
 
-        #       Round 1
+        # Round 1
         Samples = self.batch_perturb_features_on_node(
             int(num_samples / 2),
             range(num_nodes),
@@ -179,19 +172,16 @@ class MetaPGMExplainer:
         data = pd.DataFrame(Samples)
         p_values = []
 
-        target = (
-            num_nodes  # The entry for the graph classification data is at "num_nodes"
-        )
+        # The entry for the graph classification data is at "num_nodes"
+        target = num_nodes
         for node in range(num_nodes):
-            chi2, p, _ = chi_square(node, target, [], data, boolean=False)
+            _, p, _ = chi_square(node, target, [], data, boolean=False)
             p_values.append(p)
 
-        number_candidates = min(int(top_node * 4), num_nodes - 1)
-        candidate_nodes = np.argpartition(p_values, number_candidates)[
-            0:number_candidates
-        ]
+        n_candidates = min(int(top_node * 4), num_nodes - 1)
+        candidate_nodes = np.argpartition(p_values, n_candidates)[0:n_candidates]
 
-        #         Round 2
+        # Round 2
         Samples = self.batch_perturb_features_on_node(
             num_samples, candidate_nodes, percentage, p_threshold, pred_threshold
         )
@@ -202,7 +192,7 @@ class MetaPGMExplainer:
 
         target = num_nodes
         for node in range(num_nodes):
-            chi2, p, _ = chi_square(node, target, [], data, boolean=False)
+            _, p, _ = chi_square(node, target, [], data, boolean=False)
             p_values.append(p)
             if p < p_threshold:
                 dependent_nodes.append(node)

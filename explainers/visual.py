@@ -1,21 +1,15 @@
 from enum import Enum
 
-import networkx as nx
 import numpy as np
-import PIL.Image
-from matplotlib.patches import Rectangle
-from PIL import Image, ImageOps
 
 n_class_dict = {
     "MutagNet": 2,
-    "Tox21Net": 2,
-    "Reddit5kNet": 5,
-    "VGNet": 5,
     "BA2MotifNet": 2,
     "BA3MotifNet": 3,
     "TR3MotifNet": 3,
     "MNISTNet": 10,
 }
+
 vis_dict = {
     "MutagNet": {"node_size": 400, "linewidths": 1, "font_size": 10, "width": 3},
     "Tox21Net": {"node_size": 400, "linewidths": 1, "font_size": 10, "width": 3},
@@ -25,6 +19,7 @@ vis_dict = {
     "MNISTNet": {"node_size": 100, "linewidths": 1, "font_size": 10, "width": 2},
     "defult": {"node_size": 200, "linewidths": 1, "font_size": 10, "width": 2},
 }
+
 chem_graph_label_dict = {
     "MutagNet": {
         0: "C",
@@ -98,18 +93,6 @@ chem_graph_label_dict = {
         52: "Sc",
     },
 }
-rec_color = [
-    "cyan",
-    "mediumblue",
-    "deeppink",
-    "darkorange",
-    "gold",
-    "chartreuse",
-    "lightcoral",
-    "darkviolet",
-    "teal",
-    "lightgrey",
-]
 
 
 def sentence_layout(sentence, length, margin=0.2):

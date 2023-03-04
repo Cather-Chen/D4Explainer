@@ -1,11 +1,17 @@
+import io
 import math
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import torch
+from matplotlib import cm
+from matplotlib.patches import Rectangle
+from PIL import Image
 
-from .visual import *
+from .visual import graph_to_mol, sentence_layout, vis_dict
 
 EPS = 1e-6
 
@@ -58,7 +64,7 @@ class Explainer(object):
         pos = None
         try:
             pos = g.pos[sub_nodes]
-        except:
+        except Exception:
             pass
 
         # remapping the nodes in the explanatory subgraph to new ids.
@@ -100,7 +106,7 @@ class Explainer(object):
             top_idx = torch.cat([top_idx, edge_indicator[Gi_pos_edge_idx]])
         try:
             exp_subgraph.edge_attr = graph.edge_attr[top_idx]
-        except:
+        except Exception:
             pass
         exp_subgraph.edge_index = graph.edge_index[:, top_idx]
         # .... the nodes.
@@ -116,7 +122,6 @@ class Explainer(object):
 
     def evaluate_recall(self, topk=10):
         graph, imp = self.last_result
-        E = graph.num_edges
         if isinstance(graph.ground_truth_mask, list):
             graph.ground_truth_mask = graph.ground_truth_mask[0]
         index = np.argsort(-imp)[:topk]
@@ -164,7 +169,7 @@ class Explainer(object):
                 .numpy()
             )
             labels = torch.LongTensor([[i] for i in y_pred]).to(y_pred.device)
-            if if_cf == False:
+            if not if_cf:
                 res_fid = (
                     soft_pred.gather(1, labels)
                     .detach()
@@ -197,7 +202,7 @@ class Explainer(object):
         name=None,
     ):
         """
-        Current: visualization for GraphSST2 / xx-Motif / Mutag / MNIST / VGNet
+        Current: visualization for GraphSST2 / xx-Motif / Mutag / MNIST
         TODO: BBBP & Tox21 / node classification visualization
         """
         if graph is None:
@@ -210,7 +215,7 @@ class Explainer(object):
         G.add_nodes_from(range(graph.num_nodes))
         G.add_edges_from(list(graph.edge_index.cpu().numpy().T))
 
-        if not counter_edge_index == None:
+        if counter_edge_index is not None:
             G.add_edges_from(list(counter_edge_index.cpu().numpy().T))
         if self.vis_dict is None:
             self.vis_dict = (
@@ -290,7 +295,7 @@ class Explainer(object):
                 font_weight="bold",
                 font_color="k",
             )
-            if not counter_edge_index == None:
+            if counter_edge_index is not None:
                 nx.draw_networkx_edges(
                     G,
                     pos=pos,
@@ -355,7 +360,7 @@ class Explainer(object):
                 edge_vmax=vmax,
                 arrows=False,
             )
-            if not counter_edge_index == None:
+            if counter_edge_index is not None:
                 nx.draw_networkx_edges(
                     G,
                     pos=pos,
@@ -482,7 +487,7 @@ class Explainer(object):
                 linewidths=self.vis_dict["linewidths"],
                 edgecolors="black",
             )
-            if not counter_edge_index == None:
+            if counter_edge_index is not None:
                 nx.draw_networkx_edges(
                     G,
                     pos=pos,
@@ -491,125 +496,3 @@ class Explainer(object):
                     width=self.vis_dict["width"] / 3.0,
                     arrows=False,
                 )
-
-        if self.model_name == "VGNet":
-            from visual_genome import local as vgl
-
-            idx = np.argsort(-edge_imp)[:topk]
-            top_edges = graph.edge_index[:, idx]
-
-            scene_graph = vgl.get_scene_graph(
-                image_id=int(graph.name),
-                images="visual_genome/raw",
-                image_data_dir="visual_genome/raw/by-id/",
-                synset_file="visual_genome/raw/synsets.json",
-            )
-            # scene_graph = api.get_scene_graph_of_image(id=int(graph.id))
-            r = 0.95  # transparency
-            img = Image.open("data/VG/raw/%d-%d.jpg" % (graph.name, graph.y))
-            data = list(img.getdata())
-            ndata = list(
-                [
-                    (
-                        int((255 - p[0]) * r + p[0]),
-                        int((255 - p[1]) * r + p[1]),
-                        int((255 - p[2]) * r + p[2]),
-                    )
-                    for p in data
-                ]
-            )
-            mode = img.mode
-            width, height = img.size
-            edges = list(top_edges.T)
-            for i, (u, v) in enumerate(edges[::-1]):
-                r = 1.0 - 1.0 / len(edges) * (i + 1)
-                obj1 = scene_graph.objects[u]
-                obj2 = scene_graph.objects[v]
-                for obj in [obj1, obj2]:
-                    for x in range(obj.x, obj.width + obj.x):
-                        for y in range(obj.y, obj.y + obj.height):
-                            ndata[y * width + x] = (
-                                int(
-                                    (255 - data[y * width + x][0]) * r
-                                    + data[y * width + x][0]
-                                ),
-                                int(
-                                    (255 - data[y * width + x][1]) * r
-                                    + data[y * width + x][1]
-                                ),
-                                int(
-                                    (255 - data[y * width + x][2]) * r
-                                    + data[y * width + x][2]
-                                ),
-                            )
-
-            img = Image.new(mode, (width, height))
-            img.putdata(ndata)
-
-            plt.imshow(img)
-            ax = plt.gca()
-            for i, (u, v) in enumerate(edges):
-                obj1 = scene_graph.objects[u]
-                obj2 = scene_graph.objects[v]
-                ax.annotate(
-                    "",
-                    xy=(obj2.x, obj2.y),
-                    xytext=(obj1.x, obj1.y),
-                    arrowprops=dict(width=topk - i, color="wheat", headwidth=5),
-                )
-                for obj in [obj1, obj2]:
-                    ax.text(
-                        obj.x,
-                        obj.y - 8,
-                        str(obj),
-                        style="italic",
-                        fontsize=13,
-                        bbox={
-                            "facecolor": "white",
-                            "alpha": 0.8,
-                            "pad": 3,
-                            "edgecolor": rec_color[i % len(rec_color)],
-                        },
-                    )
-                    ax.add_patch(
-                        Rectangle(
-                            (obj.x, obj.y),
-                            obj.width,
-                            obj.height,
-                            fill=False,
-                            edgecolor=rec_color[i % len(rec_color)],
-                            linewidth=1.5,
-                        )
-                    )
-            plt.tick_params(labelbottom="off", labelleft="off")
-            plt.axis("off")
-        if save:
-            if name:
-                plt.savefig(
-                    folder / Path(r"%s-%d-%s.png" % (name, int(graph.y[0]), self.name)),
-                    dpi=500,
-                    bbox_inches="tight",
-                )
-            else:
-                if isinstance(graph.name[0], str):
-                    plt.savefig(
-                        folder
-                        / Path(
-                            r"%s-%d-%s.png"
-                            % (str(graph.name[0]), int(graph.y[0]), self.name)
-                        ),
-                        dpi=500,
-                        bbox_inches="tight",
-                    )
-                else:
-                    plt.savefig(
-                        folder
-                        / Path(
-                            r"%d-%d-%s.png"
-                            % (int(graph.name[0]), int(graph.y[0]), self.name)
-                        ),
-                        dpi=500,
-                        bbox_inches="tight",
-                    )
-
-        plt.show()

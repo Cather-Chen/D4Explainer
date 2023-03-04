@@ -38,7 +38,7 @@ class CXPlain(Explainer):
             tmp_g.edge_index = graph.edge_index[:, edge_mask]
             try:
                 tmp_g.edge_attr = graph.edge_attr[edge_mask]
-            except:
+            except Exception:
                 pass
             if self.task == "nc":
                 soft_pred, _ = self.model.get_node_pred_subgraph(
@@ -58,7 +58,7 @@ class CXPlain(Explainer):
         explainer = CX_Model(graph, h_dim=32).to(self.device)
         optimizer = torch.optim.Adam(explainer.parameters(), lr=lr)
 
-        for i in range(1, epoch + 1):
+        for _ in range(epoch):
             optimizer.zero_grad()
             out = explainer(graph)
             out = F.softmax(out)

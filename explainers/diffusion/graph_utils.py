@@ -124,7 +124,7 @@ def discretenoise_single(train_adj_b, node_flags, sigma, device):
 def generate_mask(node_flags):
     """
     params:
-        node_flages： [bsz, N]
+        node_flages: [bsz, N]
     returns:
         groundtruth: [bsz, N, N]
     """
@@ -202,7 +202,7 @@ def gen_full(batch, mask):
     """
     Args:
         batch: graph.batch
-        mask:[bsz, N, N]
+        mask: [bsz, N, N]
     """
     bsz = mask.size(0)
     node_sizes = (

@@ -105,30 +105,30 @@ class PowerfulLayer(nn.Module):
             .view(mask.size(0), 1, 1, 1)
         )
 
-        ##here i will start to treat mask as in the edp paper, namely batch x N with then a boolean value
+        # here I will start to treat mask as in the edp paper, namely batch x N with then a boolean value
         # batch * N * N * 1 gets to batch * 1 * N * N
         mask = mask.unsqueeze(1).squeeze(-1)
 
-        ##run the two mlp on input and permute dimensions so that now matches dim of mask: batch * N * N * out_features
+        # run the two mlp on input and permute dimensions so that now matches dim of mask: batch * N * N * out_features
         out1 = self.m1(x).permute(0, 3, 1, 2) * mask  # batch, out_feat, N, N
         out2 = self.m2(x).permute(0, 3, 1, 2) * mask  # batch, out_feat, N, N
 
-        ##matrix multiply each matching layer of features as well as adjacencies
+        # matrix multiply each matching layer of features as well as adjacencies
         out = out1 @ out2
         del out1, out2
         out = out / (norm + 1e-5)
-        ##permute back to correct dim and concat with the skip-mlp in last dim
+        # permute back to correct dim and concat with the skip-mlp in last dim
         out_cat = torch.cat(
             (out.permute(0, 2, 3, 1), x), dim=3
         )  # batch, N, N, out_feat
         del x
-        ##run through last layer to go back to out_features dim
+        # run through last layer to go back to out_features dim
         out = self.m4(out_cat)
 
         return out
 
 
-##this is the class for the invariant layer that makes the whole thing invariant
+# this is the class for the invariant layer that makes the whole thing invariant
 class FeatureExtractor(nn.Module):
     def __init__(
         self, in_features: int, out_features: int, spectral_norm=(lambda x: x)
@@ -157,11 +157,14 @@ class FeatureExtractor(nn.Module):
         # tensor of batch * features with storing the sum of diagonals
         trace = torch.sum(diag, dim=2)
         del diag
+
         out1 = self.lin1.forward(trace / n)
         s = (torch.sum(u, dim=[1, 2]) - trace) / (n * (n - 1))
         del trace
+
         out2 = self.lin2.forward(s)  # bs, out_feat
         del s
+
         out = out1 + out2
         out = out + self.lin3.forward(self.activation(out))
         return out
@@ -195,7 +198,7 @@ class Powerful(nn.Module):
 
         self.time_mlp = nn.Sequential(nn.Linear(1, 4), nn.GELU(), nn.Linear(4, 1))
         self.input_features = 2 * args.feature_in + 2
-        # self.input_features = 1
+
         self.in_lin = nn.Sequential(
             spectral_norm(nn.Linear(self.input_features, self.hidden))
         )
@@ -216,9 +219,10 @@ class Powerful(nn.Module):
                         )
                     )
                 )
+
         self.convs = nn.ModuleList([])
         self.bns = nn.ModuleList([])
-        for i in range(self.num_layers):
+        for _ in range(self.num_layers):
             self.convs.append(
                 PowerfulLayer(
                     self.hidden,
@@ -229,7 +233,7 @@ class Powerful(nn.Module):
             )
 
         self.feature_extractors = torch.nn.ModuleList([])
-        for i in range(self.num_layers):
+        for _ in range(self.num_layers):
             # self.bns.append(nn.BatchNorm2d(hidden))
             if self.normalization == "batch":
                 self.bns.append(nn.BatchNorm2d(self.hidden))
@@ -263,6 +267,7 @@ class Powerful(nn.Module):
                             )
                         )
                     )
+
             if self.layer_after_conv:
                 self.after_conv_node = nn.Sequential(
                     spectral_norm(nn.Linear(self.hidden, self.hidden))

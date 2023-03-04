@@ -57,9 +57,3 @@ class PGMExplainer(Explainer):
         self.last_result = (graph, edge_imp)
 
         return edge_imp
-
-        # paras via grid search:
-        # mutag  abs  uniform  num_samples=10, percentage=10, top_node=max(1, int(0.2*graph.num_nodes))
-        # reddit abs  mean     num_samples=10, percentage=10, top_node=max(1, int(0.2*graph.num_nodes))
-        # vg     abs  uniform  num_samples=10, percentage=10, top_node=max(1, int(0.2*graph.num_nodes))
-        # ba3    abs  uniform  num_samples=10, percentage=20, top_node=max(1, int(0.1*graph.num_nodes))
