@@ -1,5 +1,4 @@
 import os.path as osp
-import pickle as pkl
 import random
 
 import numpy as np
@@ -8,37 +7,43 @@ from torch_geometric.data import Data, InMemoryDataset
 
 
 class BA3Motif(InMemoryDataset):
-    splits = ['training', 'evaluation', 'testing']
+    splits = ["training", "evaluation", "testing"]
 
-    def __init__(self, root, mode='testing', transform=None, pre_transform=None, pre_filter=None):
-
+    def __init__(
+        self, root, mode="testing", transform=None, pre_transform=None, pre_filter=None
+    ):
         assert mode in self.splits
         self.mode = mode
         super(BA3Motif, self).__init__(root, transform, pre_transform, pre_filter)
 
-        idx = self.processed_file_names.index('{}.pt'.format(mode))
+        idx = self.processed_file_names.index("{}.pt".format(mode))
         self.data, self.slices = torch.load(self.processed_paths[idx])
 
     @property
     def raw_file_names(self):
-        return ['BA-3motif.npy']
+        return ["BA-3motif.npy"]
 
     @property
     def processed_file_names(self):
-        return ['training.pt', 'evaluation.pt', 'testing.pt']
+        return ["training.pt", "evaluation.pt", "testing.pt"]
 
     def download(self):
-        if not osp.exists(osp.join(self.raw_dir, 'raw', 'BA-3motif.npy')):
-            print("raw data of `BA-3motif.npy` doesn't exist, please redownload from our github.")
+        if not osp.exists(osp.join(self.raw_dir, "raw", "BA-3motif.npy")):
+            print(
+                "raw data of `BA-3motif.npy` doesn't exist, please redownload from our github."
+            )
             raise FileNotFoundError
 
     def process(self):
-
-        edge_index_list, label_list, ground_truth_list, role_id_list, pos = np.load(osp.join(self.raw_dir, self.raw_file_names[0]), allow_pickle=True)
+        edge_index_list, label_list, ground_truth_list, role_id_list, pos = np.load(
+            osp.join(self.raw_dir, self.raw_file_names[0]), allow_pickle=True
+        )
 
         data_list = []
         alpha = 0.25
-        for idx, (edge_index, y, ground_truth, z, p) in enumerate(zip(edge_index_list, label_list, ground_truth_list, role_id_list, pos)):
+        for idx, (edge_index, y, ground_truth, z, p) in enumerate(
+            zip(edge_index_list, label_list, ground_truth_list, role_id_list, pos)
+        ):
             edge_index = torch.from_numpy(edge_index)
             edge_index = torch.tensor(edge_index, dtype=torch.long)
             node_idx = torch.unique(edge_index)
@@ -50,14 +55,19 @@ class BA3Motif(InMemoryDataset):
             edge_attr = torch.ones(edge_index.size(1), 1)
             y = torch.tensor(y, dtype=torch.long).unsqueeze(dim=0)
             # fix bug for torch > 1.6
-            p = np.array(list(p.values())) 
-            
-            data = Data(x=x, y=y, z=z,
-                        edge_index=edge_index,
-                        edge_attr=edge_attr,
-                        pos = p,
-                        ground_truth_mask=ground_truth,
-                        name=f'BA-3motif{idx}', idx=idx)
+            p = np.array(list(p.values()))
+
+            data = Data(
+                x=x,
+                y=y,
+                z=z,
+                edge_index=edge_index,
+                edge_attr=edge_attr,
+                pos=p,
+                ground_truth_mask=ground_truth,
+                name=f"BA-3motif{idx}",
+                idx=idx,
+            )
 
             if self.pre_filter is not None and not self.pre_filter(data):
                 continue
