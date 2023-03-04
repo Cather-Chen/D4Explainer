@@ -120,14 +120,6 @@ class Explainer(object):
             ) = self.__relabel__(exp_subgraph, exp_subgraph.edge_index)
         return exp_subgraph
 
-    def evaluate_recall(self, topk=10):
-        graph, imp = self.last_result
-        if isinstance(graph.ground_truth_mask, list):
-            graph.ground_truth_mask = graph.ground_truth_mask[0]
-        index = np.argsort(-imp)[:topk]
-        values = graph.ground_truth_mask[index]
-        return float(values.sum()) / float(graph.ground_truth_mask.sum())
-
     def evaluate_acc(self, top_ratio_list, graph=None, imp=None, if_cf=False):
         if graph is None:
             assert self.last_result is not None

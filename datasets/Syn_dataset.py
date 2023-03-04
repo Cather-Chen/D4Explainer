@@ -145,8 +145,3 @@ class SynGraphDataset(InMemoryDataset):
             self.collate([data_list[i] for i in test_mask]),
             f"./data/{self.name}/processed/testing_sub.pt",
         )
-
-
-# root = "./data"
-# data = SynGraphDataset(root, name="Tree_Cycle")
-# print(data[0].mapping)

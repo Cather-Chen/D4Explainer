@@ -54,7 +54,6 @@ class BA3Motif(InMemoryDataset):
             x = alpha * x + (1 - alpha) * torch.rand((node_idx.size(0), 4))
             edge_attr = torch.ones(edge_index.size(1), 1)
             y = torch.tensor(y, dtype=torch.long).unsqueeze(dim=0)
-            # fix bug for torch > 1.6
             p = np.array(list(p.values()))
 
             data = Data(
