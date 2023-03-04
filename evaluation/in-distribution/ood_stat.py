@@ -10,8 +10,6 @@ from scipy.linalg import eigvalsh
 
 from utils.dist_helper import compute_mmd, gaussian, gaussian_emd, process_tensor
 
-# from torch_geometric.utils import to_networkx
-
 PRINT_TIME = False
 ORCA_DIR = "orca"  # the relative path to the orca dir
 
@@ -251,18 +249,18 @@ def orbit_stats_all(graph_ref_list, graph_pred_list):
     for G in graph_ref_list:
         try:
             orbit_counts = orca(G)
-        # except Exception as e:
-        #     print("error at orca")
-        #     print(e)
-        except:
+        except Exception:
+            # print("error at orca")
+            # print(e)
             continue
+
         orbit_counts_graph = np.sum(orbit_counts, axis=0) / G.number_of_nodes()
         total_counts_ref.append(orbit_counts_graph)
 
     for G in graph_pred_list:
         try:
             orbit_counts = orca(G)
-        except:
+        except Exception:
             continue
         orbit_counts_graph = np.sum(orbit_counts, axis=0) / G.number_of_nodes()
         total_counts_pred.append(orbit_counts_graph)
