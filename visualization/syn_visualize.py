@@ -15,28 +15,20 @@ from gnns import *
 from utils.dataset import get_datasets
 
 feature_dict = {
-    "BA_Community": 10,
     "BA_shapes": 10,
     "Tree_Cycle": 10,
     "Tree_Grids": 10,
     "mutag": 14,
     "ba3": 4,
-    "mnist": 1,
-    "tox21": 9,
-    "reddit": 1,
     "bbbp": 9,
     "NCI1": 37,
 }
 task_type = {
-    "BA_Community": "nc",
     "BA_shapes": "nc",
     "Tree_Cycle": "nc",
     "Tree_Grids": "nc",
     "mutag": "gc",
     "ba3": "gc",
-    "mnist": "gc",
-    "tox21": "gc",
-    "reddit": "gc",
     "bbbp": "gc",
     "NCI1": "gc",
 }

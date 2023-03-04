@@ -2,7 +2,6 @@ import argparse
 import os
 import os.path as osp
 import random
-import sys
 import time
 
 import torch
@@ -91,9 +90,9 @@ class BA3MotifNet(torch.nn.Module):
     def get_node_reps(self, x, edge_index, edge_attr, batch):
         x = self.node_emb(x)
         x = F.dropout(x, p=0.4)
-        for conv, ReLU in zip(self.convs, self.relus):
+        for conv, relu in zip(self.convs, self.relus):
             x = conv(x=x, edge_index=edge_index, edge_weight=edge_attr)
-            x = ReLU(x)
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         return node_x
@@ -115,9 +114,9 @@ class BA3MotifNet(torch.nn.Module):
         edge_mask = (edge_mask * EPS).sigmoid()
         x = self.node_emb(x)
         x = F.dropout(x, p=0.4)
-        for conv, ReLU in zip(self.convs, self.relus):
+        for conv, relu in zip(self.convs, self.relus):
             x = conv(x=x, edge_index=edge_index, edge_weight=edge_mask)
-            x = ReLU(x)
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         graph_x = global_mean_pool(node_x, batch)
@@ -164,9 +163,9 @@ class BA3MotifNet_attr(torch.nn.Module):
     def get_node_reps(self, x, edge_index, edge_attr, batch):
         x = self.node_emb(x)
         x = F.dropout(x, p=0.4)
-        for conv, ReLU in zip(self.convs, self.relus):
+        for conv, relu in zip(self.convs, self.relus):
             x = conv(x=x, edge_index=edge_index, edge_weight=edge_attr)
-            x = ReLU(x)
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         return node_x
@@ -193,9 +192,9 @@ class BA3MotifNet_attr(torch.nn.Module):
         edge_mask = edge_mask * edge_attr
         x = self.node_emb(x)
         x = F.dropout(x, p=0.4)
-        for conv, ReLU in zip(self.convs, self.relus):
+        for conv, relu in zip(self.convs, self.relus):
             x = conv(x=x, edge_index=edge_index, edge_weight=edge_mask)
-            x = ReLU(x)
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         graph_x = global_mean_pool(node_x, batch)
@@ -239,7 +238,6 @@ if __name__ == "__main__":
     for epoch in range(1, args.epoch + 1):
         t1 = time.time()
         lr = scheduler.optimizer.param_groups[0]["lr"]
-        # modify below with Gtrain2 and Gtest2 if args.with_attr
         loss = Gtrain(
             train_loader, model, optimizer, device=device, criterion=CrossEntropyLoss()
         )

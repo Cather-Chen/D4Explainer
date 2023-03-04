@@ -84,11 +84,11 @@ class Syn_GCN(torch.nn.Module):
         self.dropout = 0
 
     def forward(self, x, edge_index, edge_attr=None):
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index)
             x = F.dropout(x, self.dropout, training=self.training)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         # graph_x = global_mean_pool(x, batch)
         # x_res = torch.cat(xx, dim=1)
         pred = self.ffn(x)  # [node_num, n_class]
@@ -96,21 +96,21 @@ class Syn_GCN(torch.nn.Module):
         return pred
 
     def get_node_reps(self, x, edge_index, edge_attr=None):
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index)
             x = F.dropout(x, self.dropout, training=self.training)
-            x = ReLU(x)
+            x = relu(x)
         node_x = self.ffn[0](x)
         node_x = F.relu(node_x)
         node_x = F.dropout(node_x)
         return node_x
 
     def get_node_pred_subgraph(self, x, edge_index, mapping=None):
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index)
             x = F.dropout(x, self.dropout, training=self.training)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         node_repr = self.ffn(x)  # [node_num, n_class]
         node_prob = self.softmax(node_repr)
         output_prob = node_prob[mapping]  # [bsz, n_classes]
@@ -119,11 +119,11 @@ class Syn_GCN(torch.nn.Module):
 
     def get_pred_explain(self, x, edge_index, edge_mask, mapping=None):
         edge_mask = (edge_mask * EPS).sigmoid()
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_mask)
             x = F.dropout(x, self.dropout, training=self.training)
             # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            x = relu(x)
         node_repr = self.ffn(x)  # [node_num, n_class]
         node_prob = self.softmax(node_repr)
         output_prob = node_prob[mapping]  # [bsz, n_classes]
@@ -167,14 +167,14 @@ class Syn_GCN_attr(torch.nn.Module):
     def forward(self, x, edge_index, edge_attr=None):
         edge_weight = (
             torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr == None
+            if edge_attr is None
             else edge_attr
         )
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             x = F.dropout(x, self.dropout, training=self.training)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         # graph_x = global_mean_pool(x, batch)
         # x_res = torch.cat(xx, dim=1)
         pred = self.ffn(x)  # [node_num, n_class]
@@ -184,13 +184,13 @@ class Syn_GCN_attr(torch.nn.Module):
     def get_node_reps(self, x, edge_index, edge_attr=None):
         edge_weight = (
             torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr == None
+            if edge_attr is None
             else edge_attr
         )
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             x = F.dropout(x, self.dropout, training=self.training)
-            x = ReLU(x)
+            x = relu(x)
         node_x = self.ffn[0](x)
         node_x = F.relu(node_x)
         node_x = F.dropout(node_x)
@@ -202,11 +202,11 @@ class Syn_GCN_attr(torch.nn.Module):
             if edge_attr is None
             else edge_attr
         )
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             x = F.dropout(x, self.dropout, training=self.training)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         node_repr = self.ffn(x)
         node_prob = self.softmax(node_repr)
         output_prob = node_prob[mapping]

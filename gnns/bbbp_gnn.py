@@ -112,10 +112,10 @@ class BBBP_GCN(torch.nn.Module):
     def forward(self, x, edge_index, batch):
         edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
         # edge_weight = self.edge_emb(edge_attr).squeeze(-1)
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         graph_x = global_mean_pool(x, batch)
         pred = self.ffn(graph_x)
         self.readout = self.softmax(pred)
@@ -123,10 +123,10 @@ class BBBP_GCN(torch.nn.Module):
 
     def get_node_reps(self, x, edge_index):
         edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device)
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         node_x = x
         return node_x
 
@@ -150,9 +150,9 @@ class BBBP_GCN(torch.nn.Module):
     def get_pred_explain(self, x, edge_index, edge_mask, batch):
         edge_mask = edge_mask.sigmoid()
         # edge_weight = edge_mask.unsqueeze(-1).repeat(1, 128)
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_mask)
-            x = ReLU(x)
+            x = relu(x)
         node_x = x
         graph_x = global_mean_pool(node_x, batch)
         pred = self.ffn(graph_x)
@@ -191,10 +191,10 @@ class BBBP_GCN_attr(torch.nn.Module):
             if edge_attr is None
             else edge_attr
         )
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         graph_x = global_mean_pool(x, batch)
         pred = self.ffn(graph_x)
@@ -204,13 +204,13 @@ class BBBP_GCN_attr(torch.nn.Module):
     def get_pred(self, x, edge_index, edge_attr, batch):
         edge_weight = (
             torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr == None
+            if edge_attr is None
             else edge_attr
         )
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         graph_x = global_mean_pool(node_x, batch)
@@ -221,13 +221,13 @@ class BBBP_GCN_attr(torch.nn.Module):
     def get_emb(self, x, edge_index, edge_attr, batch):
         edge_weight = (
             torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr == None
+            if edge_attr is None
             else edge_attr
         )
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
-            # x = ReLU(batch_norm(x))
-            x = ReLU(x)
+            # x = relu(batch_norm(x))
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         graph_x = global_mean_pool(node_x, batch)
@@ -239,9 +239,9 @@ class BBBP_GCN_attr(torch.nn.Module):
         edge_mask = edge_mask.sigmoid()
         edge_mask = edge_mask * edge_attr
         # edge_weight = edge_mask.unsqueeze(-1).repeat(1, 128)
-        for conv, batch_norm, ReLU in zip(self.convs, self.batch_norms, self.relus):
+        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_mask)
-            x = ReLU(x)
+            x = relu(x)
         x = F.dropout(x, p=0.4)
         node_x = x
         graph_x = global_mean_pool(node_x, batch)

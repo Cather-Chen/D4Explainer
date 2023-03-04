@@ -1,51 +1,13 @@
 import os
 
-import torch
-from torch_geometric.datasets import MNISTSuperpixels
-
 from datasets import (
     NCI1,
     BA3Motif,
     Mutagenicity,
     SynGraphDataset,
-    Tox,
     WebDataset,
     bbbp,
 )
-
-
-class MNISTTransform(object):
-    def __init__(self, norm=True, max_value=None, cat=True):
-        self.norm = norm
-        self.max = max_value
-        self.cat = cat
-
-    def __call__(self, data):
-        (row, col), pos, pseudo = data.edge_index, data.pos, data.edge_attr
-
-        cart = pos[col] - pos[row]
-        cart = cart.view(-1, 1) if cart.dim() == 1 else cart
-
-        if self.norm and cart.numel() > 0:
-            max_value = cart.abs().max() if self.max is None else self.max
-            cart = cart / (2 * max_value) + 0.5
-
-        if pseudo is not None and self.cat:
-            pseudo = pseudo.view(-1, 1) if pseudo.dim() == 1 else pseudo
-            data.edge_attr = torch.cat([pseudo, cart.type_as(pseudo)], dim=-1)
-        else:
-            data.edge_attr = cart
-
-        row, col = data.edge_index
-        data.ground_truth_mask = (data.x[row] > 0).view(-1).bool() * (
-            data.x[col] > 0
-        ).view(-1).bool()
-        return data
-
-    def __repr__(self):
-        return "{}(norm={}, max_value={})".format(
-            self.__class__.__name__, self.norm, self.max
-        )
 
 
 def get_datasets(name, root="data/"):
@@ -64,25 +26,11 @@ def get_datasets(name, root="data/"):
         train_dataset = BA3Motif(folder, mode="training")
         test_dataset = BA3Motif(folder, mode="testing")
         val_dataset = BA3Motif(folder, mode="evaluation")
-    elif name == "mnist":
-        folder = os.path.join(root, "MNIST")
-        transform = MNISTTransform(cat=False, max_value=9)
-        train_dataset = MNISTSuperpixels(folder, True, transform=transform)
-        test_dataset = MNISTSuperpixels(folder, False, transform=transform)
-        # Reduced dataset
-        train_dataset = train_dataset[:6000]
-        val_dataset = test_dataset[1000:2000]
-        test_dataset = test_dataset[:1000]
     elif name == "BA_shapes":
         folder = os.path.join(root)
         test_dataset = SynGraphDataset(folder, mode="testing", name="BA_shapes")
         val_dataset = SynGraphDataset(folder, mode="evaluating", name="BA_shapes")
         train_dataset = SynGraphDataset(folder, mode="training", name="BA_shapes")
-    elif name == "BA_Community":
-        folder = os.path.join(root)
-        test_dataset = SynGraphDataset(folder, mode="testing", name="BA_Community")
-        val_dataset = SynGraphDataset(folder, mode="evaluating", name="BA_Community")
-        train_dataset = SynGraphDataset(folder, mode="training", name="BA_Community")
     elif name == "Tree_Cycle":
         folder = os.path.join(root)
         test_dataset = SynGraphDataset(folder, mode="testing", name="Tree_Cycle")
@@ -99,13 +47,7 @@ def get_datasets(name, root="data/"):
         test_dataset = dataset[:200]
         val_dataset = dataset[200:400]
         train_dataset = dataset[400:]
-    elif name == "tox21":
-        folder = os.path.join(root, "tox21")
-        dataset = Tox(folder)
-        test_dataset = dataset[:500]
-        val_dataset = dataset[500:1000]
-        train_dataset = dataset[1000:]
-    elif name in ["cornell", "texas", "wisconsin", "cora", "citeseer"]:
+    elif name == "cornell":
         folder = os.path.join(root)
         test_dataset = WebDataset(folder, mode="testing", name=name)
         val_dataset = WebDataset(folder, mode="evaluating", name=name)

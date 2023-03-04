@@ -203,7 +203,7 @@ class Explainer(object):
     ):
         """
         Current: visualization for GraphSST2 / xx-Motif / Mutag / MNIST
-        TODO: BBBP & Tox21 / node classification visualization
+        TODO: BBBP / node classification visualization
         """
         if graph is None:
             assert self.last_result is not None

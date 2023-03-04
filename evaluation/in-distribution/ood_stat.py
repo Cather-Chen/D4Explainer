@@ -8,7 +8,7 @@ import networkx as nx
 import numpy as np
 from scipy.linalg import eigvalsh
 
-from utils.dist_helper import compute_mmd, gaussian, gaussian_emd, process_tensor
+from utils import compute_mmd, gaussian, gaussian_emd, process_tensor
 
 PRINT_TIME = False
 ORCA_DIR = "orca"  # the relative path to the orca dir

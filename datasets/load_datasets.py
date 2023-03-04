@@ -133,7 +133,6 @@ def get_dataset(dataset_dir, dataset_name, task=None):
     sync_dataset_dict = {
         "BA_2Motifs".lower(): "BA_2Motifs",
         "BA_Shapes".lower(): "BA_shapes",
-        "BA_Community".lower(): "BA_Community",
         "Tree_Cycle".lower(): "Tree_Cycle",
         "Tree_Grids".lower(): "Tree_Grids",
         "BA_LRP".lower(): "ba_lrp",
