@@ -10,7 +10,6 @@ from .random_caster import RandomCaster
 from .sa_explainer import SAExplainer
 
 __all__ = [
-    "Explainer",
     "GNNExplainer",
     "PGExplainer",
     "PGMExplainer",
