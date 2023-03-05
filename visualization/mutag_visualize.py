@@ -20,6 +20,7 @@ from constants import (
 )
 from explainers import DiffExplainer
 from explainers.visual import vis_dict
+from gnns import *
 from utils.dataset import get_datasets
 
 

@@ -12,6 +12,7 @@ from constants import (
     feature_dict,
     task_type,
 )
+from gnns import *
 from utils.dataset import get_datasets
 
 

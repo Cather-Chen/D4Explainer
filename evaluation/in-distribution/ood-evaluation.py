@@ -18,6 +18,7 @@ from explainers import (
     RandomCaster,
     SAExplainer,
 )
+from gnns import *
 from utils.dataset import get_datasets
 
 

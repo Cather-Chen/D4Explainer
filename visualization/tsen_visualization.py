@@ -9,10 +9,8 @@ import torch
 from sklearn.manifold import TSNE
 from torch_geometric.data import DataLoader
 
+from gnns import *
 from utils.dataset import get_datasets
-
-sys.path.append("..")
-
 
 EPS = 1
 

@@ -17,6 +17,7 @@ from explainers.diffusion.graph_utils import (
     generate_mask,
     graph2tensor,
 )
+from gnns import *
 from utils.dataset import get_datasets
 
 

@@ -2,30 +2,10 @@ import argparse
 
 import torch
 
+from constants import add_dataset_args, feature_dict, task_type
 from explainers import DiffExplainer
+from gnns import *
 from utils.dataset import get_datasets
-
-feature_dict = {
-    "BA_shapes": 10,
-    "Tree_Cycle": 10,
-    "Tree_Grids": 10,
-    "cornell": 1703,
-    "mutag": 14,
-    "ba3": 4,
-    "bbbp": 9,
-    "NCI1": 37,
-}
-
-task_type = {
-    "BA_shapes": "nc",
-    "Tree_Cycle": "nc",
-    "Tree_Grids": "nc",
-    "cornell": "nc",
-    "mutag": "gc",
-    "ba3": "gc",
-    "bbbp": "gc",
-    "NCI1": "gc",
-}
 
 
 def parse_args():
@@ -34,20 +14,7 @@ def parse_args():
     parser.add_argument(
         "--root", type=str, default="results/distribution/", help="Result directory."
     )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="NCI1",
-        choices=[
-            "BA_shapes",
-            "Tree_Cycle",
-            "Tree_Grids",
-            "cornell" "mutag",
-            "ba3",
-            "bbbp",
-            "NCI1",
-        ],
-    )
+    parser = add_dataset_args(parser)
 
     parser.add_argument("--gnn_type", type=str, default="gcn")
     parser.add_argument("--task", type=str, default="nc")
