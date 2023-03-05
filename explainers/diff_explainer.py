@@ -85,30 +85,6 @@ def sparsity(score, groundtruth, mask, threshold=0.5):
     return ratio_average
 
 
-def _sparsity(score, groundtruth, mask, threshold=0.5):
-    """
-    params:
-        score: list of [bsz, N, N, 1], list: len(sigma_list),
-        groundtruth: [bsz, N, N]
-        mask: [bsz, N, N]
-    """
-    mr_list = []
-    for score_tensor in score:  # [bsz, N, N, 1]
-        score_tensor = score_tensor.squeeze(-1)  # [ bsz, N, N]
-        pred_adj = torch.where(torch.sigmoid(score_tensor) > threshold, 1, 0).to(
-            groundtruth.device
-        )
-        pred_adj = pred_adj * mask
-        groundtruth_ = groundtruth * mask
-        adj_diff = torch.abs(groundtruth_ - pred_adj)  # [bsz, N, N]
-        num_edge_b = groundtruth_.sum(dim=(1, 2))
-        adj_diff_ratio = adj_diff.sum(dim=(1, 2)) / num_edge_b
-        ratio_average = float(torch.mean(adj_diff_ratio).detach().cpu())
-        mr_list.append(ratio_average)
-    mr = np.mean(mr_list)
-    return mr
-
-
 def gnn_pred(graph_batch, graph_batch_sub, gnn_model, ds, task):
     gnn_model.eval()
     if task == "nc":

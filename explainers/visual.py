@@ -1,22 +1,13 @@
 from enum import Enum
 
-import numpy as np
-
 n_class_dict = {
     "MutagNet": 2,
-    "BA2MotifNet": 2,
     "BA3MotifNet": 3,
-    "TR3MotifNet": 3,
-    "MNISTNet": 10,
 }
 
 vis_dict = {
     "MutagNet": {"node_size": 400, "linewidths": 1, "font_size": 10, "width": 3},
     "BA3MotifNet": {"node_size": 300, "linewidths": 1, "font_size": 10, "width": 3},
-    "TR3MotifNet": {"node_size": 300, "linewidths": 1, "font_size": 10, "width": 5},
-    "GraphSST2Net": {"node_size": 400, "linewidths": 1, "font_size": 12, "width": 3},
-    "MNISTNet": {"node_size": 100, "linewidths": 1, "font_size": 10, "width": 2},
-    "defult": {"node_size": 200, "linewidths": 1, "font_size": 10, "width": 2},
 }
 
 chem_graph_label_dict = {
@@ -37,22 +28,6 @@ chem_graph_label_dict = {
         13: "Ca",
     },
 }
-
-
-def sentence_layout(sentence, length, margin=0.2):
-    num_token = len(sentence)
-    pos = {}
-    height = []
-    width = []
-
-    right_margin = len(sentence[-1]) * 0.05
-    gap = (length - right_margin) / (num_token - 1)
-    start = 0
-    for i in range(num_token):
-        pos[i] = np.array([start + gap * i, gap / 5 * pow(-1, i)])
-        width.append(len(sentence[i]) * 0.04)
-        height.append(gap / 3)
-    return pos, np.array(width), np.array(height)
 
 
 def e_map_mutag(bond_type, reverse=False):

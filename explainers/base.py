@@ -8,10 +8,9 @@ import networkx as nx
 import numpy as np
 import torch
 from matplotlib import cm
-from matplotlib.patches import Rectangle
 from PIL import Image
 
-from .visual import graph_to_mol, sentence_layout, vis_dict
+from .visual import graph_to_mol, vis_dict
 
 EPS = 1e-6
 
@@ -109,7 +108,7 @@ class Explainer(object):
         except Exception:
             pass
         exp_subgraph.edge_index = graph.edge_index[:, top_idx]
-        # .... the nodes.
+
         exp_subgraph.x = graph.x
         if relabel:
             (
@@ -194,7 +193,7 @@ class Explainer(object):
         name=None,
     ):
         """
-        Current: visualization for GraphSST2 / xx-Motif / Mutag / MNIST
+        Current: visualization for xx-Motif / Mutag
         TODO: BBBP / node classification visualization
         """
         if graph is None:
@@ -234,77 +233,8 @@ class Explainer(object):
         node_pos_mask[node_pos_idx] = True
         node_neg_mask[node_neg_idx] = True
 
-        if self.model_name == "GraphSST2Net":
-            plt.figure(figsize=(10, 4), dpi=100)
-            ax = plt.gca()
-            node_imp = np.zeros(graph.num_nodes)
-            row, col = graph.edge_index[:, edge_pos_mask].cpu().numpy()
-            node_imp[row] += edge_imp[edge_pos_mask]
-            node_imp[col] += edge_imp[edge_pos_mask]
-            node_alpha = node_imp / max(node_imp)
-            pos, width, height = sentence_layout(graph.sentence_tokens[0], length=2)
-
-            nx.draw_networkx_edges(
-                G,
-                pos=pos,
-                edgelist=list(graph.edge_index.cpu().numpy().T),
-                edge_color="whitesmoke",
-                width=self.vis_dict["width"],
-                arrows=True,
-                connectionstyle="arc3,rad=0.2",  # <-- THIS IS IT
-            )
-            nx.draw_networkx_edges(
-                G,
-                pos=pos,
-                edgelist=list(graph.edge_index[:, edge_pos_mask].cpu().numpy().T),
-                edge_color=self.get_rank(edge_imp[edge_pos_mask]),
-                width=self.vis_dict["width"],
-                edge_cmap=cm.get_cmap("Greys"),
-                edge_vmin=-vmax,
-                edge_vmax=vmax,
-                arrows=True,
-                connectionstyle="arc3,rad=0.2",
-            )
-
-            for i in node_pos_idx:
-                patch = Rectangle(
-                    xy=(pos[i][0] - width[i] / 2, pos[i][1] - height[i] / 2),
-                    width=width[i],
-                    height=height[i],
-                    linewidth=1,
-                    color="orchid",
-                    alpha=node_alpha[i],
-                    fill=True,
-                    label=graph.sentence_tokens[0][i],
-                )
-                ax.add_patch(patch)
-
-            nx.draw_networkx_labels(
-                G,
-                pos=pos,
-                labels={i: graph.sentence_tokens[0][i] for i in range(graph.num_nodes)},
-                font_size=self.vis_dict["font_size"],
-                font_weight="bold",
-                font_color="k",
-            )
-            if counter_edge_index is not None:
-                nx.draw_networkx_edges(
-                    G,
-                    pos=pos,
-                    edgelist=list(counter_edge_index.cpu().numpy().T),
-                    edge_color="mediumturquoise",
-                    width=self.vis_dict["width"] / 2.0,
-                    arrows=True,
-                    connectionstyle="arc3,rad=0.2",
-                )
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-            ax.spines["bottom"].set_visible(False)
-            ax.spines["left"].set_visible(False)
-
         if "Motif" in self.model_name:
             plt.figure(figsize=(8, 6), dpi=100)
-            ax = plt.gca()
             pos = graph.pos[0]
             nx.draw_networkx_nodes(
                 G,
@@ -414,77 +344,3 @@ class Explainer(object):
                         )
                     )
             return
-
-        if "MNIST" in self.model_name:
-            plt.figure(figsize=(6, 6), dpi=100)
-            ax = plt.gca()
-            pos = graph.pos.detach().cpu().numpy()
-            row, col = graph.edge_index
-            z = np.zeros(graph.num_nodes)
-            for i in idx:
-                z[row[i]] += edge_imp[i]
-                z[col[i]] += edge_imp[i]
-            z = z / max(z)
-
-            row, col = graph.edge_index
-            pos = graph.pos.detach().cpu().numpy()
-            z = graph.x.detach().cpu().numpy()
-            edge_mask = torch.tensor(
-                graph.x[row].view(-1) * graph.x[col].view(-1), dtype=torch.bool
-            ).view(-1)
-
-            nx.draw_networkx_edges(
-                G,
-                pos=pos,
-                edgelist=list(graph.edge_index.cpu().numpy().T),
-                edge_color="whitesmoke",
-                width=self.vis_dict["width"],
-                arrows=False,
-            )
-            nx.draw_networkx_edges(
-                G,
-                pos=pos,
-                edgelist=list(graph.edge_index[:, edge_mask].cpu().numpy().T),
-                edge_color="black",
-                width=self.vis_dict["width"],
-                arrows=False,
-            )
-            nx.draw_networkx_nodes(
-                G,
-                pos=pos,
-                node_size=self.vis_dict["node_size"],
-                node_color="black",
-                alpha=graph.x,
-                linewidths=self.vis_dict["linewidths"],
-                edgecolors="black",
-            )
-            nx.draw_networkx_edges(
-                G,
-                pos=pos,
-                edgelist=list(graph.edge_index[:, edge_pos_mask].cpu().numpy().T),
-                edge_color=self.get_rank(edge_imp[edge_pos_mask]),
-                width=self.vis_dict["width"],
-                edge_cmap=cm.get_cmap("YlOrRd"),
-                edge_vmin=-vmax,
-                edge_vmax=vmax,
-                arrows=False,
-            )
-            nx.draw_networkx_nodes(
-                G,
-                pos={i: pos[i] for i in node_pos_idx},
-                nodelist=node_pos_idx,
-                node_size=self.vis_dict["node_size"],
-                node_color="brown",
-                alpha=z[node_pos_idx],
-                linewidths=self.vis_dict["linewidths"],
-                edgecolors="black",
-            )
-            if counter_edge_index is not None:
-                nx.draw_networkx_edges(
-                    G,
-                    pos=pos,
-                    edgelist=list(counter_edge_index.cpu().numpy().T),
-                    edge_color="mediumturquoise",
-                    width=self.vis_dict["width"] / 3.0,
-                    arrows=False,
-                )

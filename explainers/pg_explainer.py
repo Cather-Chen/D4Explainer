@@ -247,7 +247,7 @@ class PGExplainer(Explainer):
         except Exception:
             pass
         exp_subgraph.edge_index = graph.edge_index[:, top_idx]
-        # .... the nodes.
+
         exp_subgraph.x = graph.x
         if relabel:
             (

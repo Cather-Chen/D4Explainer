@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from torch_geometric.utils import degree, to_dense_adj
 
@@ -18,49 +17,22 @@ def mask_adjs(adjs, node_flags):
     return adjs
 
 
-def get_corrupt_k(min_k=0, max_k=None, p=0.5):
-    ret = np.random.geometric(p) + min_k - 1
-    if max_k is not None:
-        ret = min(ret, max_k)
-    # print(ret, end=' ')
-    return ret
-
-
-def remove_self_loop_if_exists(adjs):
-    return (adjs - torch.eye(adjs.size()[-1]).unsqueeze(0).to(adjs.device)).clamp(
-        min=0.0
+def discretenoise_single(train_adj_b, node_flags, sigma, device):
+    train_adj_b = train_adj_b.to(device)
+    # if Aij=1 then chances for being 1 later is 1-sigma so chance of changing is sigma
+    bernoulli_adj = torch.where(
+        train_adj_b > 1 / 2,
+        torch.full_like(train_adj_b, sigma).to(device),
+        torch.full_like(train_adj_b, sigma).to(device),
     )
 
-
-def add_self_loop_if_not_exists(adjs):
-    if len(adjs.shape) == 4:
-        return adjs + torch.eye(adjs.size()[-1]).unsqueeze(0).unsqueeze(0).to(
-            adjs.device
-        )
-    return adjs + torch.eye(adjs.size()[-1]).unsqueeze(0).to(adjs.device)
-
-
-def toggle_edge_np(adj, count=1):
-    """
-    uniformly toggle `count` edges of the graph, suppose that the vertex number is fixed
-    :param adj: N x N
-    :param count: int
-    :return: new adjs and node_flags
-    """
-    count = min(count, adj.shape[-1])
-    x = np.random.choice(adj.shape[0], count)
-    y = np.random.choice(adj.shape[1], count)
-    change = 1.0 - adj[x, y]
-    adj[x, y] = change
-    adj[y, x] = change
-    return adj
-
-
-def check_adjs_symmetry(adjs):
-    if not do_check_adjs_symmetry:
-        return
-    tr_adjs = adjs.transpose(-1, -2)
-    assert (adjs - tr_adjs).abs().sum([0, 1, 2]) < 1e-2
+    noise_upper = torch.bernoulli(bernoulli_adj).triu(diagonal=1).to(device)
+    noise_lower = noise_upper.transpose(-1, -2)
+    train_adj = torch.abs(-train_adj_b + noise_upper + noise_lower)
+    noisediff = noise_upper + noise_lower
+    train_adj = mask_adjs(train_adj, node_flags)
+    noisediff = mask_adjs(noisediff, node_flags)
+    return train_adj, noisediff
 
 
 def gen_list_of_data_single(
@@ -101,24 +73,6 @@ def gen_list_of_data_single(
         train_noise_adj_b,
         noise_list,
     )
-
-
-def discretenoise_single(train_adj_b, node_flags, sigma, device):
-    train_adj_b = train_adj_b.to(device)
-    # if Aij=1 then chances for being 1 later is 1-sigma so chance of changing is sigma
-    bernoulli_adj = torch.where(
-        train_adj_b > 1 / 2,
-        torch.full_like(train_adj_b, sigma).to(device),
-        torch.full_like(train_adj_b, sigma).to(device),
-    )
-
-    noise_upper = torch.bernoulli(bernoulli_adj).triu(diagonal=1).to(device)
-    noise_lower = noise_upper.transpose(-1, -2)
-    train_adj = torch.abs(-train_adj_b + noise_upper + noise_lower)
-    noisediff = noise_upper + noise_lower
-    train_adj = mask_adjs(train_adj, node_flags)
-    noisediff = mask_adjs(noisediff, node_flags)
-    return train_adj, noisediff
 
 
 def generate_mask(node_flags):
