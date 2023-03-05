@@ -11,12 +11,7 @@ from torch_geometric.data import DataLoader
 from torch_geometric.utils import dense_to_sparse, to_dense_adj, to_undirected
 from tqdm import tqdm
 
-from constants import (
-    add_dataset_args,
-    add_explainer_args,
-    feature_dict,
-    task_type,
-)
+from constants import add_dataset_args, add_explainer_args, feature_dict, task_type
 from explainers import *
 from explainers.visual import vis_dict
 from gnns import *

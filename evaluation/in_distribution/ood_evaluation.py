@@ -1,12 +1,12 @@
 import argparse
 
 import torch
-from ood_stat import eval_graph_list
 from torch_geometric.data import DataLoader
 from torch_geometric.utils import to_networkx
 from tqdm import tqdm
 
 from constants import add_dataset_args, dataset_choices, feature_dict, task_type
+from evaluation.in_distribution.ood_stat import eval_graph_list
 from explainers import (
     CF_Explainer,
     CXPlain,
