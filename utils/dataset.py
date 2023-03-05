@@ -1,13 +1,6 @@
 import os
 
-from datasets import (
-    NCI1,
-    BA3Motif,
-    Mutagenicity,
-    SynGraphDataset,
-    WebDataset,
-    bbbp,
-)
+from datasets import NCI1, BA3Motif, Mutagenicity, SynGraphDataset, WebDataset, bbbp
 
 
 def get_datasets(name, root="data/"):

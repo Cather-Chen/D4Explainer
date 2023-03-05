@@ -30,7 +30,10 @@ explainer_choices = [
     "PGMExplainer",
     "CXPlain",
     "CF_Explainer",
-    "Random",
+    "SAExplainer",
+    "GradCam",
+    "IGExplainer",
+    "RandomCaster",
 ]
 
 

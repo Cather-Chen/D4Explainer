@@ -9,7 +9,16 @@ from torch_geometric.data import DataLoader
 from tqdm import tqdm
 
 from constants import add_standard_args, feature_dict, task_type
-from explainers import CF_Explainer, CXPlain, GNNExplainer, PGExplainer, PGMExplainer
+from explainers import (
+    CF_Explainer,
+    CXPlain,
+    GNNExplainer,
+    GradCam,
+    IGExplainer,
+    PGExplainer,
+    PGMExplainer,
+    SAExplainer,
+)
 from explainers.base import Explainer as BaseExplainer
 from explainers.diff_explainer import Powerful, sparsity
 from explainers.diffusion.graph_utils import (
@@ -74,6 +83,9 @@ Explainer = (
     | PGMExplainer
     | CXPlain
     | CF_Explainer
+    | SAExplainer
+    | GradCam
+    | IGExplainer
 )
 
 
@@ -127,9 +139,13 @@ for args.dataset in ["NCI1"]:
             task=args.task,
             n_in_channels=args.feature_in,
         )
-    elif args.explainer == "Random":
+    elif args.explainer == "RandomCaster":
         explainer: Explainer = RandomExplainer(
             device=args.device, gnn_model_path=gnn_path, task=args.task
+        )
+    elif args.explainer in ["SAExplainer", "GradCam", "IGExplainer"]:
+        explainer: Explainer = eval(args.explainer)(
+            device=args.device, gnn_model_path=gnn_path, task=args.task, ds=args.dataset
         )
     else:
         explainer: Explainer = eval(args.explainer)(
