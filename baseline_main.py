@@ -17,7 +17,7 @@ from utils.dataset import get_datasets
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train explainers")
-    parser.add_argument("--cuda", type=int, default=5, help="GPU device.")
+    parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
     parser.add_argument(
         "--root", type=str, default="results/", help="Result directory."
     )

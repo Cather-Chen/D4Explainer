@@ -30,7 +30,7 @@ task_type = {
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train explainers")
-    parser.add_argument("--cuda", type=int, default=3, help="GPU device.")
+    parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
     parser.add_argument(
         "--root", type=str, default="results/distribution/", help="Result directory."
     )

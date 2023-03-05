@@ -32,7 +32,7 @@ def parse_args():
         default=osp.join(osp.dirname(__file__), "..", "param", "gnns"),
         help="path for saving trained model.",
     )
-    parser.add_argument("--cuda", type=int, default=4, help="GPU device.")
+    parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
     parser.add_argument("--epoch", type=int, default=3000, help="Number of epoch.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=4, help="Batch size.")
