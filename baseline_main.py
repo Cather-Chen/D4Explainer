@@ -5,11 +5,14 @@ import torch
 from torch_geometric.data import DataLoader
 from tqdm import tqdm
 
-from constants import add_dataset_args, add_explainer_args, feature_dict, task_type
-from explainers import CF_Explainer, CXPlain, GNNExplainer, PGExplainer, PGMExplainer
+from constants import (
+    Explainer,
+    add_dataset_args,
+    add_explainer_args,
+    feature_dict,
+    task_type,
+)
 from utils.dataset import get_datasets
-
-Explainer = PGExplainer | PGMExplainer | GNNExplainer | CXPlain | CF_Explainer
 
 
 def parse_args():
@@ -74,16 +77,18 @@ for dataset in [
         data_wise_resutls[ex] = []
         args.explainer = ex
         if args.explainer in ["PGExplainer"]:
-            Explainer = eval(args.explainer)(
+            explainer: Explainer = eval(args.explainer)(
                 args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
             )
         else:
-            Explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
+            explainer: Explainer = eval(args.explainer)(
+                args.device, gnn_path, task=args.task
+            )
         acc_logger, fid_logger = [], []
         # for graph in tqdm(iter(test_loader), total=len(test_loader)):
         for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph.to(args.device)
-            edge_imp = Explainer.explain_graph(graph)
+            edge_imp = explainer.explain_graph(graph)
             acc, fidelity = Explainer.evaluate_acc(
                 mr, graph=graph, imp=edge_imp, if_cf=True
             )
@@ -106,7 +111,7 @@ for dataset in [
     for ex in ["SAExplainer", "GradCam", "IGExplainer", "RandomCaster"]:
         data_wise_resutls[ex] = []
         args.explainer = ex
-        Explainer = eval(args.explainer)(
+        explainer: Explainer = eval(args.explainer)(
             args.device, gnn_path, task=args.task, ds=args.dataset
         )
 
@@ -114,8 +119,8 @@ for dataset in [
         # for graph in tqdm(iter(test_loader), total=len(test_loader)):
         for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph.to(args.device)
-            edge_imp = Explainer.explain_graph(graph)
-            acc, fidelity = Explainer.evaluate_acc(
+            edge_imp = explainer.explain_graph(graph)
+            acc, fidelity = explainer.evaluate_acc(
                 mr, graph=graph, imp=edge_imp, if_cf=True
             )
             acc_logger.append(acc)
