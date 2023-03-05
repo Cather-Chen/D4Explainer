@@ -23,13 +23,12 @@ from utils.dataset import get_datasets
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train explainers")
+    parser = argparse.ArgumentParser(description="in-distribution evaluation")
     parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
     parser.add_argument(
         "--root", type=str, default="results/", help="Result directory."
     )
     parser = add_dataset_args(parser)
-    # gflow explainer related parametersn
     parser.add_argument("--gnn_type", type=str, default="gcn")
     parser.add_argument("--task", type=str, default="nc")
     parser.add_argument("--verbose", type=int, default=10)
