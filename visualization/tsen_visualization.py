@@ -48,7 +48,7 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    model = torch.load("param/gnns/Tree_Cycle_gcn.pt")
+    model = torch.load("param/gnns/Tree_Cycle_gcn.pt", map_location="cuda:0")
     train, val, test = get_datasets(name="Tree_Cycle")
     test_loader = DataLoader(test, batch_size=1, shuffle=False)
     X = []
