@@ -2,7 +2,6 @@ import io
 import math
 import os
 from pathlib import Path
-from typing import Union
 
 import matplotlib.pyplot as plt
 import networkx as nx

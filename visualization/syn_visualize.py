@@ -12,13 +12,12 @@ from torch_geometric.utils import dense_to_sparse, to_dense_adj
 from tqdm import tqdm
 
 from constants import (
-    Explainer,
     add_dataset_args,
     add_explainer_args,
     feature_dict,
     task_type,
 )
-from explainers import DiffExplainer
+from explainers import *
 from explainers.visual import vis_dict
 from gnns import *
 from utils.dataset import get_datasets
@@ -268,11 +267,11 @@ test_loader = DataLoader(
 )
 gnn_path = f"param/gnns/{args.dataset}_{args.gnn_type}.pt"
 if args.explainer in ["PGExplainer"]:
-    explainer: Explainer = eval(args.explainer)(
+    explainer = eval(args.explainer)(
         args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
     )
 else:
-    explainer: Explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
+    explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
 diff_e = DiffExplainer(args.device, gnn_path)
 for graph in tqdm(iter(test_loader), total=len(test_loader)):
     y = graph.y if args.task == "gc" else graph.self_y
@@ -289,7 +288,7 @@ for graph in tqdm(iter(test_loader), total=len(test_loader)):
                 mapping=exp_subgraph.mapping,
             )
         else:
-            output_prob, _ = Explainer.model.get_pred(
+            output_prob, _ = explainer.model.get_pred(
                 x=exp_subgraph.x,
                 edge_index=exp_subgraph.edge_index,
                 batch=exp_subgraph.batch,

@@ -6,12 +6,12 @@ from torch_geometric.data import DataLoader
 from tqdm import tqdm
 
 from constants import (
-    Explainer,
     add_dataset_args,
     add_explainer_args,
     feature_dict,
     task_type,
 )
+from explainers import *
 from gnns import *
 from utils.dataset import get_datasets
 
@@ -78,19 +78,17 @@ for dataset in [
         data_wise_resutls[ex] = []
         args.explainer = ex
         if args.explainer in ["PGExplainer"]:
-            explainer: Explainer = eval(args.explainer)(
+            explainer = eval(args.explainer)(
                 args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
             )
         else:
-            explainer: Explainer = eval(args.explainer)(
-                args.device, gnn_path, task=args.task
-            )
+            explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
         acc_logger, fid_logger = [], []
         # for graph in tqdm(iter(test_loader), total=len(test_loader)):
         for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph.to(args.device)
             edge_imp = explainer.explain_graph(graph)
-            acc, fidelity = Explainer.evaluate_acc(
+            acc, fidelity = explainer.evaluate_acc(
                 mr, graph=graph, imp=edge_imp, if_cf=True
             )
             acc_logger.append(acc)
@@ -112,7 +110,7 @@ for dataset in [
     for ex in ["SAExplainer", "GradCam", "IGExplainer", "RandomCaster"]:
         data_wise_resutls[ex] = []
         args.explainer = ex
-        explainer: Explainer = eval(args.explainer)(
+        explainer = eval(args.explainer)(
             args.device, gnn_path, task=args.task, ds=args.dataset
         )
 

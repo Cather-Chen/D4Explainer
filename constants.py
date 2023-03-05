@@ -1,17 +1,3 @@
-from typing import Union
-
-from explainers import (
-    CF_Explainer,
-    CXPlain,
-    DiffExplainer,
-    GNNExplainer,
-    GradCam,
-    IGExplainer,
-    PGExplainer,
-    PGMExplainer,
-    SAExplainer,
-)
-
 feature_dict = {
     "BA_shapes": 10,
     "Tree_Cycle": 10,
@@ -61,16 +47,3 @@ def add_explainer_args(parser):
         "--explainer", type=str, default="DiffExplainer", choices=explainer_choices
     )
     return parser
-
-
-Explainer = Union[
-    DiffExplainer,
-    PGExplainer,
-    GNNExplainer,
-    PGMExplainer,
-    CXPlain,
-    CF_Explainer,
-    SAExplainer,
-    GradCam,
-    IGExplainer,
-]

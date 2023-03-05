@@ -8,8 +8,13 @@ import torch
 from torch_geometric.data import DataLoader
 from tqdm import tqdm
 
-from constants import Explainer, feature_dict, task_type
-from explainers import PGExplainer
+from constants import (
+    add_dataset_args,
+    add_explainer_args,
+    feature_dict,
+    task_type,
+)
+from explainers import *
 from explainers.base import Explainer as BaseExplainer
 from explainers.diff_explainer import Powerful, sparsity
 from explainers.diffusion.graph_utils import (
@@ -73,8 +78,8 @@ def parse_args():
     parser.add_argument(
         "--root", type=str, default="results/distribution", help="Result directory."
     )
-    parser.add_dataset_args(parser)
-    parser.add_explainer_args(parser)
+    parser = add_dataset_args(parser)
+    parser = add_explainer_args(parser)
     parser.add_argument(
         "--mod-ratio", type=float, default=0.2, help="Modification Ratio"
     )
@@ -135,26 +140,26 @@ for args.dataset in ["NCI1"]:
         return orig_pred.item()
 
     if args.explainer == "DiffExplainer":
-        explainer: Explainer = DiffExplainer(
+        explainer = DiffExplainer(
             device=args.device, gnn_model_path=gnn_path, task=args.task, args=args
         )
     elif args.explainer == "PGExplainer":
-        explainer: Explainer = PGExplainer(
+        explainer = PGExplainer(
             device=args.device,
             gnn_model=gnn_path,
             task=args.task,
             n_in_channels=args.feature_in,
         )
     elif args.explainer == "RandomCaster":
-        explainer: Explainer = RandomExplainer(
+        explainer = RandomExplainer(
             device=args.device, gnn_model_path=gnn_path, task=args.task
         )
     elif args.explainer in ["SAExplainer", "GradCam", "IGExplainer"]:
-        explainer: Explainer = eval(args.explainer)(
+        explainer = eval(args.explainer)(
             device=args.device, gnn_model_path=gnn_path, task=args.task, ds=args.dataset
         )
     else:
-        explainer: Explainer = eval(args.explainer)(
+        explainer = eval(args.explainer)(
             device=args.device, gnn_model_path=gnn_path, task=args.task
         )
 
@@ -188,10 +193,10 @@ for args.dataset in ["NCI1"]:
                         low=args.prob_low, high=args.prob_high, size=args.sigma_length
                     )
                 )
-                orig_edge_imp, orig_modif_r, exp_pred = Explainer.explain_graph(
+                orig_edge_imp, orig_modif_r, exp_pred = explainer.explain_graph(
                     model, graph, adj_b, x_b, node_flag_b, sigma_list, args
                 )
-                noisy_edge_imp, noisy_modif_r, noisy_exp_pred = Explainer.explain_graph(
+                noisy_edge_imp, noisy_modif_r, noisy_exp_pred = explainer.explain_graph(
                     model, noisy_graph, noisy_adj_b, x_b, node_flag_b, sigma_list, args
                 )
 

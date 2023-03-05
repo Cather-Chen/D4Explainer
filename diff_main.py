@@ -3,7 +3,7 @@ import argparse
 import torch
 
 from constants import add_dataset_args, feature_dict, task_type
-from explainers import DiffExplainer
+from explainers import *
 from gnns import *
 from utils.dataset import get_datasets
 
