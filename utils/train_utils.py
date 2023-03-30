@@ -3,6 +3,14 @@ from torch import nn
 
 
 def Gtrain(train_loader, model, optimizer, device, criterion=nn.MSELoss()):
+    """
+    General training function for graph classification
+    :param train_loader: DataLoader
+    :param model: model
+    :param optimizer: optimizer
+    :param device: device
+    :param criterion: loss function (default: MSELoss)
+    """
     model.train()
     loss_all = 0
     criterion = criterion
@@ -20,6 +28,14 @@ def Gtrain(train_loader, model, optimizer, device, criterion=nn.MSELoss()):
 
 
 def Gtest(test_loader, model, device, criterion=nn.L1Loss(reduction="mean")):
+    """
+    General test function for graph classification
+    :param test_loader: DataLoader
+    :param model: model
+    :param device: device
+    :param criterion: loss function (default: L1Loss)
+    :return: error, accuracy
+    """
     model.eval()
     error = 0
     correct = 0

@@ -4,6 +4,12 @@ from datasets import NCI1, BA3Motif, Mutagenicity, SynGraphDataset, WebDataset, 
 
 
 def get_datasets(name, root="data/"):
+    """
+    Get preloaded datasets by name
+    :param name: name of the dataset
+    :param root: root path of the dataset
+    :return: train_dataset, test_dataset, val_dataset
+    """
     if name == "mutag":
         folder = os.path.join(root, "MUTAG")
         train_dataset = Mutagenicity(folder, mode="training")

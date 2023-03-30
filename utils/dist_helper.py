@@ -11,7 +11,13 @@ from scipy.linalg import toeplitz
 
 
 def emd(x, y, distance_scaling=1.0):
-    # convert histogram values x and y to float, and make them equal len
+    """
+    Earth Mover's Distance (EMD) between two 1D pmf
+    :param x: 1D pmf
+    :param y: 1D pmf
+    :param distance_scaling: scaling factor for distance matrix
+    :return: EMD distance
+    """
     x = x.astype(float)
     y = y.astype(float)
     support_size = max(len(x), len(y))
@@ -24,15 +30,24 @@ def emd(x, y, distance_scaling=1.0):
 
 
 def l2(x, y):
+    """
+    L2 distance between two 1D pmf
+    :param x: 1D pmf
+    :param y: 1D pmf
+    :return: L2 distance
+    """
     dist = np.linalg.norm(x - y, 2)
     return dist
 
 
 def gaussian_emd(x, y, sigma=1.0, distance_scaling=1.0):
-    """Gaussian kernel with squared distance in exponential term replaced by EMD
-    Args:
-      x, y: 1D pmf of two distributions with the same support
-      sigma: standard deviation
+    """
+    Gaussian kernel with squared distance in exponential term replaced by EMD
+    :param x: 1D pmf
+    :param y: 1D pmf
+    :param sigma: standard deviation
+    :param distance_scaling: scaling factor for distance matrix
+    :return: Gaussian kernel with EMD
     """
     emd_value = emd(x, y, distance_scaling)
     return np.exp(-emd_value * emd_value / (2 * sigma * sigma))
@@ -68,9 +83,15 @@ def kernel_parallel_worker(t):
 
 
 def disc(samples1, samples2, kernel, is_parallel=True, *args, **kwargs):
-    """Discrepancy between 2 samples"""
-    # commented out since it produces: OSError: [Errno 12] Cannot allocate memory
-
+    """
+    Discrepancy between 2 samples
+    :param samples1: list of samples
+    :param samples2: list of samples
+    :param kernel: kernel function
+    :param is_parallel: whether to use parallel computation
+    :param args: args for kernel
+    :param kwargs: kwargs for kernel
+    """
     d = 0
     if not is_parallel:
         for s1 in samples1:
@@ -91,18 +112,19 @@ def disc(samples1, samples2, kernel, is_parallel=True, *args, **kwargs):
 
 
 def compute_mmd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
-    """MMD between two samples"""
+    """
+    MMD between two samples
+    :param samples1: list of samples
+    :param samples2: list of samples
+    :param kernel: kernel function
+    :param is_hist: whether the samples are histograms or pmf
+    :param args: args for kernel
+    :param kwargs: kwargs for kernel
+    """
     # normalize histograms into pmf
     if is_hist:
         samples1 = [s1 / np.sum(s1) for s1 in samples1]
         samples2 = [s2 / np.sum(s2) for s2 in samples2]
-    # print('===============================')
-    # print('s1: ', disc(samples1, samples1, kernel, *args, **kwargs))
-    # print('--------------------------')
-    # print('s2: ', disc(samples2, samples2, kernel, *args, **kwargs))
-    # print('--------------------------')
-    # print('cross: ', disc(samples1, samples2, kernel, *args, **kwargs))
-    # print('===============================')
     return (
         disc(samples1, samples1, kernel, *args, **kwargs)
         + disc(samples2, samples2, kernel, *args, **kwargs)
@@ -111,19 +133,19 @@ def compute_mmd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
 
 
 def compute_emd(samples1, samples2, kernel, is_hist=True, *args, **kwargs):
-    """EMD between average of two samples"""
-
+    """
+    EMD between average of two samples
+    :param samples1: list of samples
+    :param samples2: list of samples
+    :param kernel: kernel function
+    :param is_hist: whether the samples are histograms or pmf
+    :param args: args for kernel
+    :param kwargs: kwargs for kernel
+    """
     # normalize histograms into pmf
     if is_hist:
         samples1 = [np.mean(samples1)]
         samples2 = [np.mean(samples2)]
-    # print('===============================')
-    # print('s1: ', disc(samples1, samples1, kernel, *args, **kwargs))
-    # print('--------------------------')
-    # print('s2: ', disc(samples2, samples2, kernel, *args, **kwargs))
-    # print('--------------------------')
-    # print('cross: ', disc(samples1, samples2, kernel, *args, **kwargs))
-    # print('===============================')
     return disc(samples1, samples2, kernel, *args, **kwargs), [samples1[0], samples2[0]]
 
 
@@ -167,6 +189,12 @@ def test():
 
 
 def process_tensor(x, y):
+    """
+    Helper function to pad tensors to the same size
+    :param x: tensor
+    :param y: tensor
+    :return: padded tensors
+    """
     support_size = max(len(x), len(y))
     if len(x) < len(y):
         x = np.hstack((x, [0.0] * (support_size - len(x))))
