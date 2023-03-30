@@ -27,18 +27,12 @@ class DiffExplainer(BaseExplainer):
         self.device = device
         self.model = Powerful(args).to(args.device)
         exp_dir = f"{args.root}/{args.dataset}/"
-        self.model.load_state_dict(
-            torch.load(os.path.join(exp_dir, "best_model.pth"), map_location="cuda:0")[
-                "model"
-            ]
-        )
+        self.model.load_state_dict(torch.load(os.path.join(exp_dir, "best_model.pth"), map_location="cuda:0")["model"])
         self.model.eval()
 
     def explain_graph(self, model, graph, adj_b, x_b, node_flag_b, sigma_list, args):
         sigma_list = [sigma / 20 for sigma in sigma_list]
-        _, _, _, test_noise_adj_b, _ = gen_list_of_data_single(
-            x_b, adj_b, node_flag_b, sigma_list, args
-        )
+        _, _, _, test_noise_adj_b, _ = gen_list_of_data_single(x_b, adj_b, node_flag_b, sigma_list, args)
         test_noise_adj_b_chunked = test_noise_adj_b.chunk(len(sigma_list), dim=0)
         score = []
         mask = generate_mask(node_flag_b)
@@ -70,14 +64,10 @@ class RandomExplainer(BaseExplainer):
 def parse_args():
     parser = argparse.ArgumentParser(description="Robustness Experiment")
     parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
-    parser.add_argument(
-        "--root", type=str, default="results/distribution", help="Result directory."
-    )
+    parser.add_argument("--root", type=str, default="results/distribution", help="Result directory.")
     parser = add_dataset_args(parser)
     parser = add_explainer_args(parser)
-    parser.add_argument(
-        "--mod-ratio", type=float, default=0.2, help="Modification Ratio"
-    )
+    parser.add_argument("--mod-ratio", type=float, default=0.2, help="Modification Ratio")
     parser.add_argument("--k", type=int, default=8, help="Top-K")
     # gflow explainer related parameters
     parser.add_argument("--gnn_type", type=str, default="gcn")
@@ -124,20 +114,14 @@ for args.dataset in ["NCI1"]:
 
     def get_graph_pred(graph):
         if args.task == "nc":
-            output_prob, _ = model.get_node_pred_subgraph(
-                x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
-            )
+            output_prob, _ = model.get_node_pred_subgraph(x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping)
         else:
-            output_prob, _ = model.get_pred(
-                x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-            )
+            output_prob, _ = model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
         orig_pred = output_prob.argmax(dim=-1)
         return orig_pred.item()
 
     if args.explainer == "DiffExplainer":
-        explainer = DiffExplainer(
-            device=args.device, gnn_model_path=gnn_path, task=args.task, args=args
-        )
+        explainer = DiffExplainer(device=args.device, gnn_model_path=gnn_path, task=args.task, args=args)
     elif args.explainer == "PGExplainer":
         explainer = PGExplainer(
             device=args.device,
@@ -146,17 +130,11 @@ for args.dataset in ["NCI1"]:
             n_in_channels=args.feature_in,
         )
     elif args.explainer == "RandomCaster":
-        explainer = RandomExplainer(
-            device=args.device, gnn_model_path=gnn_path, task=args.task
-        )
+        explainer = RandomExplainer(device=args.device, gnn_model_path=gnn_path, task=args.task)
     elif args.explainer in ["SAExplainer", "GradCam", "IGExplainer"]:
-        explainer = eval(args.explainer)(
-            device=args.device, gnn_model_path=gnn_path, task=args.task, ds=args.dataset
-        )
+        explainer = eval(args.explainer)(device=args.device, gnn_model_path=gnn_path, task=args.task, ds=args.dataset)
     else:
-        explainer = eval(args.explainer)(
-            device=args.device, gnn_model_path=gnn_path, task=args.task
-        )
+        explainer = eval(args.explainer)(device=args.device, gnn_model_path=gnn_path, task=args.task)
 
     print(f"--------{args.dataset} with {args.explainer}----------")
 
@@ -171,9 +149,7 @@ for args.dataset in ["NCI1"]:
             adj_b, x_b = graph2tensor(graph.to(args.device), device=args.device)
             x_b = x_b.to(args.device)
             node_flag_b = adj_b.sum(-1).gt(1e-5).to(dtype=torch.float32)
-            _, _, _, noisy_adj_b, _ = gen_list_of_data_single(
-                x_b, adj_b, node_flag_b, [sigma], args
-            )
+            _, _, _, noisy_adj_b, _ = gen_list_of_data_single(x_b, adj_b, node_flag_b, [sigma], args)
 
             noisy_graph = copy.deepcopy(graph)
             noisy_graph.edge_index = noisy_adj_b[0].nonzero().t()
@@ -183,11 +159,7 @@ for args.dataset in ["NCI1"]:
 
             if args.explainer == "DiffExplainer":
                 # 2D arrays [N, N] of the importance of full adjacency matrix
-                sigma_list = list(
-                    np.random.uniform(
-                        low=args.prob_low, high=args.prob_high, size=args.sigma_length
-                    )
-                )
+                sigma_list = list(np.random.uniform(low=args.prob_low, high=args.prob_high, size=args.sigma_length))
                 orig_edge_imp, orig_modif_r, exp_pred = explainer.explain_graph(
                     model, graph, adj_b, x_b, node_flag_b, sigma_list, args
                 )
@@ -207,9 +179,7 @@ for args.dataset in ["NCI1"]:
                     t = int(n_nodes * n_nodes)
                     _, indices = orig_edge_imp.flatten().topk(t)
 
-                top_k_orig_exp_edges = torch.stack(
-                    [indices // n_nodes, indices % n_nodes]
-                )
+                top_k_orig_exp_edges = torch.stack([indices // n_nodes, indices % n_nodes])
 
                 # all edges with positive counterfactual importance
                 noisy_exp_edges = noisy_edge_imp.nonzero().T
@@ -222,30 +192,20 @@ for args.dataset in ["NCI1"]:
 
                 # K edges with the smallest importance (largest counterfactual importance)
                 try:
-                    top_k_orig_exp_edges = graph.edge_index[
-                        :, np.argsort(orig_edge_imp)[: args.k]
-                    ]
+                    top_k_orig_exp_edges = graph.edge_index[:, np.argsort(orig_edge_imp)[: args.k]]
                 except Exception:
-                    top_k_orig_exp_edges = graph.edge_index[
-                        :, np.argsort(orig_edge_imp)
-                    ]
+                    top_k_orig_exp_edges = graph.edge_index[:, np.argsort(orig_edge_imp)]
 
                 # (1-mod%) % edges with the smallest importance (largest counterfactual importance)
                 mod_top_k = min(math.ceil(args.mod_ratio * n_edges), n_edges)
-                noisy_exp_edges = noisy_graph.edge_index[
-                    :, np.argsort(-noisy_edge_imp)[mod_top_k:]
-                ]
+                noisy_exp_edges = noisy_graph.edge_index[:, np.argsort(-noisy_edge_imp)[mod_top_k:]]
 
             noisy_graph_same_class.append(1 if orig_pred == noisy_pred else 0)
 
             num_intersect = 0
             n_orig_edges = min(args.k, top_k_orig_exp_edges.shape[1])
             for i in range(n_orig_edges):
-                if (
-                    (top_k_orig_exp_edges[:, i].unsqueeze(1) == noisy_exp_edges)
-                    .all(0)
-                    .any()
-                ):
+                if (top_k_orig_exp_edges[:, i].unsqueeze(1) == noisy_exp_edges).all(0).any():
                     num_intersect += 1
             acc = num_intersect / n_orig_edges
             acc_logger.append(acc)

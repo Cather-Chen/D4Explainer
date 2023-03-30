@@ -25,9 +25,7 @@ from utils.dataset import get_datasets
 def parse_args():
     parser = argparse.ArgumentParser(description="in-distribution evaluation")
     parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
-    parser.add_argument(
-        "--root", type=str, default="results/", help="Result directory."
-    )
+    parser.add_argument("--root", type=str, default="results/", help="Result directory.")
     parser = add_dataset_args(parser)
     parser.add_argument("--gnn_type", type=str, default="gcn")
     parser.add_argument("--task", type=str, default="nc")
@@ -56,9 +54,7 @@ for dataset in dataset_choices:
     args.feature_in = feature_dict[args.dataset]
     args.task = task_type[args.dataset]
     train_dataset, val_dataset, test_dataset = get_datasets(name=args.dataset)
-    test_loader = DataLoader(
-        test_dataset[: args.num_test], batch_size=1, shuffle=False, drop_last=False
-    )
+    test_loader = DataLoader(test_dataset[: args.num_test], batch_size=1, shuffle=False, drop_last=False)
     gnn_path = f"param/gnns/{args.dataset}_{args.gnn_type}.pt"
     for ex in [
         CF_Explainer,
@@ -71,18 +67,14 @@ for dataset in dataset_choices:
         test_graph = []
         pred_graph = []
         if ex in [PGExplainer]:
-            explainer = ex(
-                args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
-            )
+            explainer = ex(args.device, gnn_path, task=args.task, n_in_channels=args.feature_in)
         else:
             explainer = ex(args.device, gnn_path, task=args.task)
 
         for graph in test_loader:
             graph.to(args.device)
             edge_imp = explainer.explain_graph(graph)
-            exp_subgraph = explainer.pack_explanatory_subgraph(
-                top_ratio=0.2, graph=graph, imp=edge_imp, if_cf=True
-            )
+            exp_subgraph = explainer.pack_explanatory_subgraph(top_ratio=0.2, graph=graph, imp=edge_imp, if_cf=True)
             G_ori = to_networkx(graph, to_undirected=True)
             G_pred = to_networkx(exp_subgraph, to_undirected=True)
             test_graph.append(G_ori)
@@ -100,9 +92,7 @@ for dataset in dataset_choices:
         for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph.to(args.device)
             edge_imp = explainer.explain_graph(graph)
-            exp_subgraph = explainer.pack_explanatory_subgraph(
-                top_ratio=0.2, graph=graph, imp=edge_imp, if_cf=True
-            )
+            exp_subgraph = explainer.pack_explanatory_subgraph(top_ratio=0.2, graph=graph, imp=edge_imp, if_cf=True)
             G_ori = to_networkx(graph, to_undirected=True)
             G_pred = to_networkx(exp_subgraph, to_undirected=True)
             test_graph.append(G_ori)
