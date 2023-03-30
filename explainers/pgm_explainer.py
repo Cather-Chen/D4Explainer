@@ -9,20 +9,22 @@ class PGMExplainer(Explainer):
     def __init__(self, device, gnn_model_path, task):
         super(PGMExplainer, self).__init__(device, gnn_model_path, task)
 
-    def explain_graph(
-        self, graph, model=None, epochs=200, lr=1e-2, draw_graph=0, vis_ratio=0.2
-    ):
+    def explain_graph(self, graph, model=None, draw_graph=0, vis_ratio=0.2):
+        """
+        Explain the graph using PGMExplainer
+        :param graph: the graph to be explained.
+        :param model: the model to be explained.
+        :param draw_graph: whether to draw the graph.
+        :param vis_ratio: the ratio of edges to be visualized.
+        :return: the explanation (edge_imp)
+        """
         if model is None:
             model = self.model
         dim = graph.x.size(1)
         if self.task == "nc":
-            soft_pred, _ = model.get_node_pred_subgraph(
-                x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
-            )
+            soft_pred, _ = model.get_node_pred_subgraph(x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping)
         else:
-            soft_pred, _ = model.get_pred(
-                x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-            )
+            soft_pred, _ = model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
 
         pred_threshold = 0.1 * torch.max(soft_pred)
         perturb_features_list = [i for i in range(dim)]

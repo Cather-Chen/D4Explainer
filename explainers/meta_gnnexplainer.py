@@ -49,8 +49,6 @@ class MetaGNNGExplainer(torch.nn.Module):
         self.edge_mask = None
 
     def __loss__(self, log_logits, pred_label):
-        # pred = log_logits.softmax(dim=1)[0, pred_label]
-        # loss = -torch.log2(pred+ EPS) + torch.log2(1 - pred+ EPS)
         criterion = torch.nn.NLLLoss()
         loss = criterion(log_logits, pred_label)
         m = self.edge_mask.sigmoid()
@@ -60,6 +58,12 @@ class MetaGNNGExplainer(torch.nn.Module):
         return loss
 
     def explain_graph(self, graph, **kwargs):
+        """
+        Explain a graph using the MetaGNNGExplainer.
+        :param graph: the graph to be explained.
+        :param kwargs: additional arguments.
+        :return: the explanation (edge_mask)
+        """
         self.__clear_masks__()
 
         # get the initial prediction.
@@ -69,12 +73,8 @@ class MetaGNNGExplainer(torch.nn.Module):
                     x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
                 )
             else:
-                soft_pred, _ = self.model.get_pred(
-                    x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-                )
+                soft_pred, _ = self.model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
             pred_label = soft_pred.argmax(dim=-1)
-
-        # self.__set_masks__(graph.x, graph.edge_index)
 
         N = graph.x.size(0)
         E = graph.edge_index.size(1)
@@ -87,18 +87,12 @@ class MetaGNNGExplainer(torch.nn.Module):
         for _ in range(self.epochs):
             optimizer.zero_grad()
             if self.task == "nc":
-                output_prob, output_repr = self.model.get_pred_explain(
-                    x=graph.x,
-                    edge_index=graph.edge_index,
-                    edge_mask=self.edge_mask,
-                    mapping=graph.mapping,
+                _, output_repr = self.model.get_pred_explain(
+                    x=graph.x, edge_index=graph.edge_index, edge_mask=self.edge_mask, mapping=graph.mapping
                 )
             else:
                 _, output_repr = self.model.get_pred_explain(
-                    x=graph.x,
-                    edge_index=graph.edge_index,
-                    edge_mask=self.edge_mask,
-                    batch=graph.batch,
+                    x=graph.x, edge_index=graph.edge_index, edge_mask=self.edge_mask, batch=graph.batch
                 )
             log_logits = F.log_softmax(output_repr)
             loss = self.__loss__(log_logits, pred_label)
@@ -106,7 +100,6 @@ class MetaGNNGExplainer(torch.nn.Module):
             optimizer.step()
 
         edge_mask = self.edge_mask.detach().sigmoid()
-        # self.__clear_masks__()
 
         return edge_mask
 

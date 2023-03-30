@@ -74,36 +74,26 @@ class MetaPGMExplainer:
                             perturb_array[i] = torch.max(feature_matrix[:, i])
                         elif self.perturb_mode == "uniform":
                             eps = epsilon[i].mean()
-                            perturb_array[i] = perturb_array[i] + np.random.uniform(
-                                low=-eps, high=eps
-                            )
+                            perturb_array[i] = perturb_array[i] + np.random.uniform(low=-eps, high=eps)
 
         X_perturb[node_idx] = perturb_array
 
         return X_perturb
 
-    def batch_perturb_features_on_node(
-        self, num_samples, index_to_perturb, percentage, p_threshold, pred_threshold
-    ):
+    def batch_perturb_features_on_node(self, num_samples, index_to_perturb, percentage, p_threshold, pred_threshold):
         if self.task == "nc":
             soft_pred, _ = self.model.get_node_pred_subgraph(
-                x=self.graph.x,
-                edge_index=self.graph.edge_index,
-                mapping=self.graph.mapping,
+                x=self.graph.x, edge_index=self.graph.edge_index, mapping=self.graph.mapping
             )
         else:
-            soft_pred, _ = self.model.get_pred(
-                x=self.graph.x, edge_index=self.graph.edge_index, batch=self.graph.batch
-            )
+            soft_pred, _ = self.model.get_pred(x=self.graph.x, edge_index=self.graph.edge_index, batch=self.graph.batch)
         soft_pred = np.asarray(soft_pred.detach().cpu().numpy())
         pred_label = (
-            self.graph.y.detach().cpu().numpy()
-            if self.task == "gc"
-            else self.graph.self_y.detach().cpu().numpy()
+            self.graph.y.detach().cpu().numpy() if self.task == "gc" else self.graph.self_y.detach().cpu().numpy()
         )
         num_nodes = self.X_feat.size(0)
         Samples = []
-        for iteration in range(num_samples):
+        for _ in range(num_samples):
             X_perturb = copy.copy(self.X_feat)
             sample = []
             for node in range(num_nodes):
@@ -111,9 +101,7 @@ class MetaPGMExplainer:
                     seed = np.random.randint(100)
                     if seed < percentage:
                         latent = 1
-                        X_perturb = self.perturb_features_on_node(
-                            X_perturb, node, random=latent
-                        )
+                        X_perturb = self.perturb_features_on_node(X_perturb, node, random=latent)
                     else:
                         latent = 0
                 else:
@@ -126,9 +114,7 @@ class MetaPGMExplainer:
                     x=tmp_g.x, edge_index=tmp_g.edge_index, mapping=tmp_g.mapping
                 )
             else:
-                soft_pred_perturb, _ = self.model.get_pred(
-                    x=tmp_g.x, edge_index=tmp_g.edge_index, batch=tmp_g.batch
-                )  # [bsz, num_class]
+                soft_pred_perturb, _ = self.model.get_pred(x=tmp_g.x, edge_index=tmp_g.edge_index, batch=tmp_g.batch)
             soft_pred_perturb = np.asarray(soft_pred_perturb.detach().cpu().numpy())
 
             pred_change = np.max(soft_pred) - soft_pred_perturb[0, pred_label]
@@ -150,14 +136,7 @@ class MetaPGMExplainer:
 
         return Samples
 
-    def explain(
-        self,
-        num_samples=1000,
-        percentage=50,
-        top_node=5,
-        p_threshold=0.05,
-        pred_threshold=0.1,
-    ):
+    def explain(self, num_samples=1000, percentage=50, top_node=5, p_threshold=0.05, pred_threshold=0.1):
         num_nodes = self.X_feat.size(0)
 
         # Round 1

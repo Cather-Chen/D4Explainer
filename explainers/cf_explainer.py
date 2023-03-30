@@ -12,10 +12,7 @@ EPS = 1e-15
 
 
 class MetaCFExplainer(torch.nn.Module):
-    coeffs = {
-        "edge_size": 0.05,
-        "edge_ent": 0.5,
-    }
+    coeffs = {"edge_size": 0.05, "edge_ent": 0.5}
 
     def __init__(self, model, epochs=1000, lr=0.01, log=True, task="gc"):
         super(MetaCFExplainer, self).__init__()
@@ -45,14 +42,15 @@ class MetaCFExplainer(torch.nn.Module):
         self.edge_mask = None
 
     def __loss__(self, log_logits, pred_label):
-        loss = -F.nll_loss(log_logits, pred_label)
-        # m = self.edge_mask.sigmoid()
-        # loss = loss + self.coeffs['edge_size'] * m.sum()
-        # ent = -m * torch.log(m + EPS) - (1 - m) * torch.log(1 - m + EPS)
-        # loss = loss + self.coeffs['edge_ent'] * ent.mean()
-        return loss
+        return -F.nll_loss(log_logits, pred_label)
 
     def explain_graph(self, graph, **kwargs):
+        """
+        Explain a graph using the MetaCFExplainer.
+        :param graph: the graph to be explained.
+        :param kwargs: additional arguments.
+        :return: the explanation (edge_mask)
+        """
         # get the initial prediction.
         with torch.no_grad():
             if self.task == "nc":
@@ -60,9 +58,7 @@ class MetaCFExplainer(torch.nn.Module):
                     x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
                 )
             else:
-                soft_pred, _ = self.model.get_pred(
-                    x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-                )
+                soft_pred, _ = self.model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
             pred_label = soft_pred.argmax(dim=-1)
 
         N = graph.x.size(0)
@@ -105,9 +101,17 @@ class CF_Explainer(Explainer):
     def __init__(self, device, gnn_model_path, task):
         super(CF_Explainer, self).__init__(device, gnn_model_path, task)
 
-    def explain_graph(
-        self, graph, model=None, epochs=100, lr=1e-2, draw_graph=0, vis_ratio=0.2
-    ):
+    def explain_graph(self, graph, model=None, epochs=100, lr=1e-2, draw_graph=0, vis_ratio=0.2):
+        """
+        Explain a graph using the CFExplainer.
+        :param graph: the graph to be explained.
+        :param model: the model to be explained.
+        :param epochs: the number of epochs to train the explainer.
+        :param lr: the learning rate of the explainer.
+        :param draw_graph: whether to draw the graph.
+        :param vis_ratio: the ratio of edges to be visualized.
+        :return: the explanation (edge_imp)
+        """
         if model is None:
             model = self.model
 
@@ -121,9 +125,16 @@ class CF_Explainer(Explainer):
 
         return edge_imp
 
-    def pack_explanatory_subgraph(
-        self, top_ratio=0.2, graph=None, imp=None, relabel=False, if_cf=True
-    ):
+    def pack_explanatory_subgraph(self, top_ratio=0.2, graph=None, imp=None, relabel=False, if_cf=True):
+        """
+        Pack the explanatory subgraph from the original graph
+        :param top_ratio: the ratio of edges to be selected
+        :param graph: the original graph
+        :param imp: the attribution scores for edges
+        :param relabel: whether to relabel the nodes in the explanatory subgraph
+        :param if_cf: whether to use the CF method
+        :return: the explanatory subgraph
+        """
         ratio_cf = 1 - top_ratio
         if graph is None:
             graph, imp = self.last_result
@@ -147,10 +158,7 @@ class CF_Explainer(Explainer):
 
         exp_subgraph.x = graph.x
         if relabel:
-            (
-                exp_subgraph.x,
-                exp_subgraph.edge_index,
-                exp_subgraph.batch,
-                exp_subgraph.pos,
-            ) = self.__relabel__(exp_subgraph, exp_subgraph.edge_index)
+            (exp_subgraph.x, exp_subgraph.edge_index, exp_subgraph.batch, exp_subgraph.pos) = self.__relabel__(
+                exp_subgraph, exp_subgraph.edge_index
+            )
         return exp_subgraph

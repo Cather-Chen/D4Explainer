@@ -11,6 +11,14 @@ class SAExplainer(Explainer):
         self.ds = ds
 
     def explain_graph(self, graph, model=None, draw_graph=0, vis_ratio=0.2):
+        """
+        Explain a graph using SAExplainer
+        :param graph: graph to be explained
+        :param model: model to be used for explanation
+        :param draw_graph: whether to draw the graph
+        :param vis_ratio: ratio of edges to be visualized
+        :return: explanation (edge_imp)
+        """
         if model is None:
             model = self.model
         y = graph.y if self.task == "gc" else graph.self_y
@@ -25,17 +33,11 @@ class SAExplainer(Explainer):
 
         if self.task == "nc":
             soft_pred, _ = model.get_node_pred_subgraph(
-                x=tmp_graph.x,
-                edge_index=tmp_graph.edge_index,
-                edge_attr=tmp_graph.edge_attr,
-                mapping=tmp_graph.mapping,
+                x=tmp_graph.x, edge_index=tmp_graph.edge_index, edge_attr=tmp_graph.edge_attr, mapping=tmp_graph.mapping
             )
         else:
             soft_pred, _ = model.get_pred(
-                x=tmp_graph.x,
-                edge_index=tmp_graph.edge_index,
-                edge_attr=tmp_graph.edge_attr,
-                batch=tmp_graph.batch,
+                x=tmp_graph.x, edge_index=tmp_graph.edge_index, edge_attr=tmp_graph.edge_attr, batch=tmp_graph.batch
             )
 
         soft_pred[0, y].backward()
@@ -50,6 +52,14 @@ class SAExplainer(Explainer):
         return edge_imp
 
     def evaluate_acc(self, top_ratio_list, graph=None, imp=None, if_cf=False):
+        """
+        Evaluate the accuracy of the model on the graph
+        :param top_ratio_list: list of top ratio of edges to be removed
+        :param graph: graph to be evaluated
+        :param imp: importance of edges
+        :param if_cf: whether to evaluate the fidelity of the model
+        :return: accuracy and fidelity of the model
+        """
         if graph is None:
             assert self.last_result is not None
             graph, imp = self.last_result
@@ -62,24 +72,16 @@ class SAExplainer(Explainer):
 
         if self.task == "nc":
             soft_pred, _ = self.model.get_node_pred_subgraph(
-                x=graph.x,
-                edge_index=graph.edge_index,
-                edge_attr=graph.edge_attr,
-                mapping=graph.mapping,
+                x=graph.x, edge_index=graph.edge_index, edge_attr=graph.edge_attr, mapping=graph.mapping
             )
         else:
             soft_pred, _ = self.model.get_pred(
-                x=graph.x,
-                edge_index=graph.edge_index,
-                edge_attr=graph.edge_attr,
-                batch=graph.batch,
+                x=graph.x, edge_index=graph.edge_index, edge_attr=graph.edge_attr, batch=graph.batch
             )
 
         y_pred = soft_pred.argmax(dim=-1)
         for idx, top_ratio in enumerate(top_ratio_list):
-            exp_subgraph = self.pack_explanatory_subgraph(
-                top_ratio, graph=graph, imp=imp, if_cf=if_cf
-            )
+            exp_subgraph = self.pack_explanatory_subgraph(top_ratio, graph=graph, imp=imp, if_cf=if_cf)
             if self.task == "nc":
                 soft_pred, _ = self.model.get_node_pred_subgraph(
                     x=exp_subgraph.x,
@@ -94,34 +96,14 @@ class SAExplainer(Explainer):
                     edge_attr=exp_subgraph.edge_attr,
                     batch=exp_subgraph.batch,
                 )
-            # soft_pred: [bsz, num_class]
-            res_acc = (
-                (y_pred == soft_pred.argmax(dim=-1))
-                .detach()
-                .cpu()
-                .float()
-                .view(-1, 1)
-                .numpy()
-            )
+
+            res_acc = (y_pred == soft_pred.argmax(dim=-1)).detach().cpu().float().view(-1, 1).numpy()
             labels = torch.LongTensor([[i] for i in y_pred]).to(y_pred.device)
             if not if_cf:
-                res_fid = (
-                    soft_pred.gather(1, labels)
-                    .detach()
-                    .cpu()
-                    .float()
-                    .view(-1, 1)
-                    .numpy()
-                )
+                res_fid = soft_pred.gather(1, labels).detach().cpu().float().view(-1, 1).numpy()
             else:
-                res_fid = (
-                    (1 - soft_pred.gather(1, labels))
-                    .detach()
-                    .cpu()
-                    .float()
-                    .view(-1, 1)
-                    .numpy()
-                )
+                res_fid = (1 - soft_pred.gather(1, labels)).detach().cpu().float().view(-1, 1).numpy()
             acc = np.concatenate([acc, res_acc], axis=1)  # [bsz, len_ratio_list]
             fidelity = np.concatenate([fidelity, res_fid], axis=1)
+
         return acc, fidelity

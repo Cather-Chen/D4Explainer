@@ -33,9 +33,7 @@ class PGExplainer(Explainer):
         super(PGExplainer, self).__init__(device, gnn_model, task)
 
         self.device = device
-        self.edge_mask_model = EdgeMaskNet(
-            n_in_channels, e_in_channels, hid=hid, n_layers=n_layers
-        ).to(self.device)
+        self.edge_mask_model = EdgeMaskNet(n_in_channels, e_in_channels, hid=hid, n_layers=n_layers).to(self.device)
         self.epoch = 1000
         self.lr = 0.01
 
@@ -79,15 +77,10 @@ class PGExplainer(Explainer):
 
     def __cfloss__(self, pred, mask, pred_label):
         bsz, n = pred.size(0), pred.size(1)
-        inf_diag = (
-            torch.diag(-torch.ones((n)) / 0)
-            .unsqueeze(0)
-            .repeat(bsz, 1, 1)
-            .to(pred.device)
-        )
-        neg_prop = (pred.unsqueeze(1).expand(bsz, n, n) + inf_diag).logsumexp(
-            -1
-        ) - pred.logsumexp(-1).unsqueeze(1).repeat(1, n)
+        inf_diag = torch.diag(-torch.ones((n)) / 0).unsqueeze(0).repeat(bsz, 1, 1).to(pred.device)
+        neg_prop = (pred.unsqueeze(1).expand(bsz, n, n) + inf_diag).logsumexp(-1) - pred.logsumexp(-1).unsqueeze(
+            1
+        ).repeat(1, n)
         criterion = torch.nn.NLLLoss()
         loss_cf = criterion(neg_prop, pred_label)
         loss_cf = loss_cf + self.coeffs["edge_size"] * mask.mean()
@@ -130,9 +123,7 @@ class PGExplainer(Explainer):
         mask = torch.FloatTensor([]).to(self.device)
         for i in range(graph.num_graphs):
             edge_indicator = (graph_map == i).bool()
-            G_i_mask = self.edge_mask_model(
-                graph.x, graph.edge_index[:, edge_indicator]
-            ).view(-1)
+            G_i_mask = self.edge_mask_model(graph.x, graph.edge_index[:, edge_indicator]).view(-1)
             mask = torch.cat([mask, G_i_mask])
         return mask
 
@@ -157,17 +148,16 @@ class PGExplainer(Explainer):
 
         return pos_idx, num_edge, num_node, sep_edge_idx
 
-    def explain_graph(
-        self,
-        graph,
-        model=None,
-        temp=0.1,
-        ratio=0.1,
-        draw_graph=0,
-        vis_ratio=0.2,
-        train_mode=False,
-        supplement=False,
-    ):
+    def explain_graph(self, graph, model=None, temp=0.1, draw_graph=0, vis_ratio=0.2, train_mode=False):
+        """
+        Explain the graph using PGExplainer
+        :param graph: the graph to be explained
+        :param model: the model to be explained
+        :param temp: the temperature for the reparameterization trick
+        :param draw_graph: whether to draw the graph
+        :param vis_ratio: the ratio of edges to be visualized
+        :param train_mode: whether to train the explainer
+        """
         if model is not None:
             self.model = model
         if self.task == "nc":
@@ -175,42 +165,25 @@ class PGExplainer(Explainer):
                 x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
             )
         else:
-            soft_pred, _ = self.model.get_pred(
-                x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-            )
+            soft_pred, _ = self.model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
         y_pred = soft_pred.argmax(dim=-1)
         optimizer = torch.optim.Adam(self.edge_mask_model.parameters(), lr=self.lr)
-        for epoch in range(1, self.epoch + 1):
+        for _ in range(self.epoch):
             ori_mask = self.get_mask(graph)
-            edge_mask = self.__reparameterize__(
-                ori_mask, training=train_mode, beta=temp
-            )
-            # self.__set_masks__(edge_mask, self.model)
+            edge_mask = self.__reparameterize__(ori_mask, training=train_mode, beta=temp)
             if self.task == "nc":
-                output_prob, output_repr = self.model.get_pred_explain(
-                    x=graph.x,
-                    edge_index=graph.edge_index,
-                    edge_mask=edge_mask,
-                    mapping=graph.mapping,
+                _, output_repr = self.model.get_pred_explain(
+                    x=graph.x, edge_index=graph.edge_index, edge_mask=edge_mask, mapping=graph.mapping
                 )
             else:
-                output_prob, output_repr = self.model.get_pred_explain(
-                    x=graph.x,
-                    edge_index=graph.edge_index,
-                    edge_mask=edge_mask,
-                    batch=graph.batch,
+                _, output_repr = self.model.get_pred_explain(
+                    x=graph.x, edge_index=graph.edge_index, edge_mask=edge_mask, batch=graph.batch
                 )
 
             log_logits = F.log_softmax(output_repr)
             criterion = torch.nn.NLLLoss()
             loss = criterion(log_logits, y_pred)
 
-            # bsz, n = output_repr.size(0), output_repr.size(1)
-            # inf_diag = torch.diag(-torch.ones((n)) / 0).unsqueeze(0).repeat(bsz, 1, 1).to(output_repr.device)
-            # neg_prop = (output_repr.unsqueeze(1).expand(bsz, n, n) + inf_diag).logsumexp(
-            #     -1) - output_repr.logsumexp(-1).unsqueeze(1).repeat(1, n)
-            # criterion = torch.nn.NLLLoss()
-            # loss = criterion(neg_prop, y_pred)
             loss.backward()
             optimizer.step()
 
@@ -222,9 +195,16 @@ class PGExplainer(Explainer):
 
         return imp
 
-    def pack_explanatory_subgraph(
-        self, top_ratio=0.2, graph=None, imp=None, relabel=False, if_cf=False
-    ):
+    def pack_explanatory_subgraph(self, top_ratio=0.2, graph=None, imp=None, relabel=False, if_cf=False):
+        """
+        Pack the explanatory subgraph from the original graph
+        :param top_ratio: the ratio of edges to be selected
+        :param graph: the original graph
+        :param imp: the attribution scores for edges
+        :param relabel: whether to relabel the nodes in the explanatory subgraph
+        :param if_cf: whether to use the CF method
+        :return: the explanatory subgraph
+        """
         if graph is None:
             graph, imp = self.last_result
         assert len(imp) == graph.num_edges, "length mismatch"

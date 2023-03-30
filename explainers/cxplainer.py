@@ -14,9 +14,17 @@ class CXPlain(Explainer):
     def __init__(self, device, gnn_model_path, task):
         super(CXPlain, self).__init__(device, gnn_model_path, task)
 
-    def explain_graph(
-        self, graph, model=None, epoch=100, lr=0.01, draw_graph=0, vis_ratio=0.2
-    ):
+    def explain_graph(self, graph, model=None, epoch=100, lr=0.01, draw_graph=0, vis_ratio=0.2):
+        """
+        Explain the graph with CXPlain
+        :param graph: the graph to be explained
+        :param model: the model to be explained
+        :param epoch: the number of epochs to train CXPlain
+        :param lr: the learning rate of CXPlain
+        :param draw_graph: whether to draw the graph
+        :param vis_ratio: the ratio of edges to be visualized
+        :return: the explanation (edge_imp)
+        """
         y = graph.y if self.task == "gc" else graph.self_y
         if model is None:
             model = self.model
@@ -25,9 +33,7 @@ class CXPlain(Explainer):
                 x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
             )
         else:
-            soft_pred, _ = self.model.get_pred(
-                x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-            )
+            soft_pred, _ = self.model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
         orig_pred = soft_pred[0, y]
 
         granger_imp = []
@@ -45,9 +51,7 @@ class CXPlain(Explainer):
                     x=tmp_g.x, edge_index=tmp_g.edge_index, mapping=tmp_g.mapping
                 )
             else:
-                soft_pred, _ = self.model.get_pred(
-                    x=tmp_g.x, edge_index=tmp_g.edge_index, batch=tmp_g.batch
-                )
+                soft_pred, _ = self.model.get_pred(x=tmp_g.x, edge_index=tmp_g.edge_index, batch=tmp_g.batch)
 
             masked_pred = soft_pred[0, y]
             granger_imp.append(float(orig_pred - masked_pred))
@@ -82,9 +86,7 @@ class CX_Model(torch.nn.Module):
         self.lin0 = Lin(graph.x.size(-1), h_dim)
         self.relu0 = ReLU()
         self.edge_nn = Seq(
-            Lin(in_features=1, out_features=h_dim),
-            ReLU(),
-            Lin(in_features=h_dim, out_features=h_dim * h_dim),
+            Lin(in_features=1, out_features=h_dim), ReLU(), Lin(in_features=h_dim, out_features=h_dim * h_dim)
         )
         self.conv = NNConv(in_channels=h_dim, out_channels=h_dim, nn=self.edge_nn)
         self.lin1 = torch.nn.Linear(h_dim, 8)
@@ -92,6 +94,11 @@ class CX_Model(torch.nn.Module):
         self.lin2 = torch.nn.Linear(8, 1)
 
     def forward(self, graph):
+        """
+        Forward pass of the model
+        :param graph: the graph to be explained
+        :return: the edge scores
+        """
         x = graph.x
         edge_index = graph.edge_index
         edge_attr = torch.ones((edge_index.size(1), 1)).to(edge_index.device)

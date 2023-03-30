@@ -15,33 +15,32 @@ ORCA_DIR = "orca"  # the relative path to the orca dir
 
 
 def degree_worker(G):
-    """Compute the degree distribution of a graph.
-    Args:
-        G: a networkx graph
-    Returns:
-        degree_hist: a numpy array of the degree distribution
+    """
+    Compute the degree distribution of a graph.
+    :param G: a networkx graph
+    :return: a numpy array of the degree distribution
     """
     return np.array(nx.degree_histogram(G))
 
 
 def add_tensor(x, y):
-    """Add two tensors. If unequal shape, pads the smaller one with zeros.
-    Args:
-        x, y: two tensors
-    Returns:
-        x + y
+    """
+    Add two tensors. If unequal shape, pads the smaller one with zeros.
+    :param x: a tensor
+    :param y: a tensor
+    :return: x + y
     """
     x, y = process_tensor(x, y)
     return x + y
 
 
 def degree_stats(graph_ref_list, graph_pred_list, is_parallel=True):
-    """Compute the distance between the degree distributions of two unordered sets of graphs.
-    Args:
-      graph_ref_list, graph_target_list: two lists of networkx graphs to be evaluated
-      is_parallel: whether to use parallel computing
-    Returns:
-        mmd_dist: the distance between the two degree distributions
+    """
+    Compute the distance between the degree distributions of two unordered sets of graphs.
+    :param graph_ref_list: a list of networkx graphs
+    :param graph_pred_list: a list of networkx graphs
+    :param is_parallel: whether to use parallel computing
+    :return: the distance between the two degree distributions
     """
     sample_ref = []
     sample_pred = []
@@ -75,11 +74,10 @@ def degree_stats(graph_ref_list, graph_pred_list, is_parallel=True):
 
 
 def spectral_worker(G):
-    """Compute the spectral pmf of a graph.
-    Args:
-        G: a networkx graph
-    Returns:
-        spectral_pmf: a numpy array of the spectral pmf
+    """
+    Compute the spectral pmf of a graph.
+    :param G: a networkx graph
+    :return: a numpy array of the spectral pmf
     """
     eigs = eigvalsh(nx.normalized_laplacian_matrix(G).todense())
     spectral_pmf, _ = np.histogram(eigs, bins=200, range=(-1e-5, 2), density=False)
@@ -88,12 +86,12 @@ def spectral_worker(G):
 
 
 def spectral_stats(graph_ref_list, graph_pred_list, is_parallel=True):
-    """Compute the distance between the degree distributions of two unordered sets of graphs.
-    Args:
-        graph_ref_list, graph_target_list: two lists of networkx graphs to be evaluated
-        is_parallel: whether to use parallel computing
-    Returns:
-        mmd_dist: the distance between the two degree distributions
+    """
+    Compute the distance between the degree distributions of two unordered sets of graphs.
+    :param graph_ref_list: a list of networkx graphs
+    :param graph_pred_list: a list of networkx graphs
+    :param is_parallel: whether to use parallel computing
+    :return: the distance between the two degree distributions
     """
     sample_ref = []
     sample_pred = []
@@ -128,11 +126,10 @@ def spectral_stats(graph_ref_list, graph_pred_list, is_parallel=True):
 
 
 def clustering_worker(param):
-    """Compute the clustering coefficient distribution of a graph.
-    Args:
-        params: a tuple of (graph, number of bins)
-    Returns:
-        hist: a numpy array of the clustering coefficient distribution
+    """
+    Compute the clustering coefficient distribution of a graph.
+    :param param: a tuple of (graph, number of bins)
+    :return: a numpy array of the clustering coefficient distribution
     """
     G, bins = param
     clustering_coeffs_list = list(nx.clustering(G).values())
@@ -141,13 +138,13 @@ def clustering_worker(param):
 
 
 def clustering_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=True):
-    """Compute the distance between the clustering coefficient distributions of two unordered sets of graphs.
-    Args:
-        graph_ref_list, graph_target_list: two lists of networkx graphs to be evaluated
-        bins: number of bins for the histogram
-        is_parallel: whether to use parallel computing
-    Returns:
-        mmd_dist: the distance between the two clustering coefficient distributions
+    """
+    Compute the distance between the clustering coefficient distributions of two unordered sets of graphs.
+    :param graph_ref_list: a list of networkx graphs
+    :param graph_pred_list: a list of networkx graphs
+    :param bins: number of bins for the histogram
+    :param is_parallel: whether to use parallel computing
+    :return: the distance between the two clustering coefficient distributions
     """
     sample_ref = []
     sample_pred = []
@@ -185,11 +182,10 @@ COUNT_START_STR = "orbit counts: \n"
 
 
 def edge_list_reindexed(G):
-    """Convert a graph to a list of edges, where the nodes are reindexed to be integers from 0 to n-1.
-    Args:
-        G: a networkx graph
-    Returns:
-        edges: a list of edges, where each edge is a tuple of integers
+    """
+    Convert a graph to a list of edges, where the nodes are reindexed to be integers from 0 to n-1.
+    :param G: a networkx graph
+    :return: a list of edges, where each edge is a tuple of integers
     """
     idx = 0
     id2idx = dict()
@@ -204,12 +200,10 @@ def edge_list_reindexed(G):
 
 
 def orca(graph):
-    """Compute the orbit counts of a graph.
-    Args:
-        graph: a networkx graph
-    Returns:
-        node_orbit_counts: a numpy array of shape (n, 2), where n is the number of nodes in the graph.
-            The first column is the node index, and the second column is the orbit count.
+    """
+    Compute the orbit counts of a graph.
+    :param graph: a networkx graph
+    :return: a numpy array of shape (n, 2), where n is the number of nodes in the graph. The first column is the node index, and the second column is the orbit count.
     """
     tmp_file_path = os.path.join(ORCA_DIR, "tmp.txt")
     f = open(tmp_file_path, "w")
@@ -230,11 +224,11 @@ def orca(graph):
 
 
 def orbit_stats_all(graph_ref_list, graph_pred_list):
-    """Compute the distance between the orbit counts of two unordered sets of graphs.
-    Args:
-        graph_ref_list, graph_target_list: two lists of networkx graphs to be evaluated
-    Returns:
-        mmd_dist: the distance between the two orbit counts
+    """
+    Compute the distance between the orbit counts of two unordered sets of graphs.
+    :param graph_ref_list: a list of networkx graphs
+    :param graph_pred_list: a list of networkx graphs
+    :return: the distance between the two orbit counts
     """
     total_counts_ref = []
     total_counts_pred = []
@@ -264,11 +258,10 @@ def orbit_stats_all(graph_ref_list, graph_pred_list):
 
 
 def adjs_to_graphs(adjs):
-    """Convert a list of adjacency matrices to a list of networkx graphs.
-    Args:
-        adjs: a list of adjacency matrices
-    Returns:
-        graph_list: a list of networkx graphs
+    """
+    Convert a list of adjacency matrices to a list of networkx graphs.
+    :param adjs: a list of adjacency matrices
+    :return: a list of networkx graphs
     """
     graph_list = []
     for adj in adjs:
@@ -284,10 +277,8 @@ def adjs_to_graphs(adjs):
 def is_lobster_graph(G):
     """
     Check a given graph is a lobster graph or not (lobster -> caterpillar -> path)
-    Args:
-        G: a networkx graph
-    Returns:
-        True if the graph is a lobster graph, False otherwise
+    :param G: a networkx graph
+    :return: True if the graph is a lobster graph, False otherwise
     """
     # Check if G is a tree
     if nx.is_tree(G):
@@ -312,11 +303,10 @@ def is_lobster_graph(G):
 
 
 def eval_acc_lobster_graph(G_list):
-    """Compute the accuracy of a list of graphs being lobster graphs.
-    Args:
-        G_list: a list of networkx graphs
-    Returns:
-        acc: the accuracy of the list of graphs being lobster graphs
+    """
+    Compute the accuracy of a list of graphs being lobster graphs.
+    :param G_list: a list of networkx graphs
+    :return: the accuracy of the list of graphs being lobster graphs
     """
     G_list = [copy.deepcopy(gg) for gg in G_list]
 
@@ -337,12 +327,12 @@ METHOD_NAME_TO_FUNC = {
 
 
 def eval_graph_list(graph_ref_list, grad_pred_list, methods=None):
-    """Compute the evaluation metrics for a list of graphs.
-    Args:
-        graph_ref_list, grad_pred_list: two lists of networkx graphs to be evaluated
-        methods: a list of evaluation methods to be used
-    Returns:
-        results: a dictionary of evaluation results
+    """
+    Compute the evaluation metrics for a list of graphs.
+    :param graph_ref_list: a list of networkx graphs
+    :param grad_pred_list: a list of networkx graphs
+    :param methods: a list of evaluation methods to be used
+    :return: a dictionary of evaluation results
     """
     if methods is None:
         methods = ["degree", "cluster", "spectral", "orbit"]
@@ -356,12 +346,12 @@ def eval_graph_list(graph_ref_list, grad_pred_list, methods=None):
 
 
 def eval_torch_batch(ref_batch, pred_batch, methods=None):
-    """Compute the evaluation metrics for a batch of graphs.
-    Args:
-        ref_batch, pred_batch: two batches of adjacency matrices to be evaluated
-        methods: a list of evaluation methods to be used
-    Returns:
-        results: a dictionary of evaluation results
+    """
+    Compute the evaluation metrics for a batch of graphs.
+    :param ref_batch: a batch of adjacency matrices
+    :param pred_batch: a batch of adjacency matrices
+    :param methods: a list of evaluation methods to be used
+    :return: a dictionary of evaluation results
     """
     graph_ref_list = adjs_to_graphs(ref_batch.detach().cpu().numpy())
     grad_pred_list = adjs_to_graphs(pred_batch.detach().cpu().numpy())

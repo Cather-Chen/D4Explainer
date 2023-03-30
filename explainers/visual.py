@@ -1,9 +1,6 @@
 from enum import Enum
 
-n_class_dict = {
-    "MutagNet": 2,
-    "BA3MotifNet": 3,
-}
+n_class_dict = {"MutagNet": 2, "BA3MotifNet": 3}
 
 vis_dict = {
     "MutagNet": {"node_size": 400, "linewidths": 1, "font_size": 10, "width": 3},

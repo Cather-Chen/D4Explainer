@@ -18,9 +18,7 @@ EPS = 1e-6
 class Explainer(object):
     def __init__(self, device, gnn_model_path, task="gc"):
         self.device = device
-        self.model = torch.load(gnn_model_path, map_location=self.device).to(
-            self.device
-        )
+        self.model = torch.load(gnn_model_path, map_location=self.device).to(self.device)
         self.model.eval()
         self.model_name = self.model.__class__.__name__
         self.name = self.__class__.__name__
@@ -34,7 +32,7 @@ class Explainer(object):
         """
         Main part for different graph attribution methods
         :param graph: target graph instance to be explained
-        :param kwargs:
+        :param kwargs: other parameters
         :return: edge_imp, i.e., attributions for edges, which are derived from the attribution methods.
         """
         raise NotImplementedError
@@ -83,9 +81,16 @@ class Explainer(object):
 
         return gate_inputs
 
-    def pack_explanatory_subgraph(
-        self, top_ratio=0.2, graph=None, imp=None, relabel=False, if_cf=False
-    ):
+    def pack_explanatory_subgraph(self, top_ratio=0.2, graph=None, imp=None, relabel=False, if_cf=False):
+        """
+        Pack the explanatory subgraph from the original graph
+        :param top_ratio: the ratio of edges to be selected
+        :param graph: the original graph
+        :param imp: the attribution scores for edges
+        :param relabel: whether to relabel the nodes in the explanatory subgraph
+        :param if_cf: whether to use the CF method
+        :return: the explanatory subgraph
+        """
         if graph is None:
             graph, imp = self.last_result
         assert len(imp) == graph.num_edges, "length mismatch"
@@ -111,15 +116,20 @@ class Explainer(object):
 
         exp_subgraph.x = graph.x
         if relabel:
-            (
-                exp_subgraph.x,
-                exp_subgraph.edge_index,
-                exp_subgraph.batch,
-                exp_subgraph.pos,
-            ) = self.__relabel__(exp_subgraph, exp_subgraph.edge_index)
+            (exp_subgraph.x, exp_subgraph.edge_index, exp_subgraph.batch, exp_subgraph.pos) = self.__relabel__(
+                exp_subgraph, exp_subgraph.edge_index
+            )
         return exp_subgraph
 
     def evaluate_acc(self, top_ratio_list, graph=None, imp=None, if_cf=False):
+        """
+        Evaluate the accuracy of the explanatory subgraph
+        :param top_ratio_list: the ratio of edges to be selected
+        :param graph: the original graph
+        :param imp: the attribution scores for edges
+        :param if_cf: whether to use the CF method
+        :return: the accuracy of the explanatory subgraph
+        """
         if graph is None:
             assert self.last_result is not None
             graph, imp = self.last_result
@@ -130,71 +140,43 @@ class Explainer(object):
                 x=graph.x, edge_index=graph.edge_index, mapping=graph.mapping
             )
         else:
-            output_prob, _ = self.model.get_pred(
-                x=graph.x, edge_index=graph.edge_index, batch=graph.batch
-            )
+            output_prob, _ = self.model.get_pred(x=graph.x, edge_index=graph.edge_index, batch=graph.batch)
         y_pred = output_prob.argmax(dim=-1)
         for idx, top_ratio in enumerate(top_ratio_list):
-            exp_subgraph = self.pack_explanatory_subgraph(
-                top_ratio, graph=graph, imp=imp, if_cf=if_cf
-            )
+            exp_subgraph = self.pack_explanatory_subgraph(top_ratio, graph=graph, imp=imp, if_cf=if_cf)
             if self.task == "nc":
                 soft_pred, _ = self.model.get_node_pred_subgraph(
-                    x=exp_subgraph.x,
-                    edge_index=exp_subgraph.edge_index,
-                    mapping=exp_subgraph.mapping,
+                    x=exp_subgraph.x, edge_index=exp_subgraph.edge_index, mapping=exp_subgraph.mapping
                 )
             else:
                 soft_pred, _ = self.model.get_pred(
-                    x=exp_subgraph.x,
-                    edge_index=exp_subgraph.edge_index,
-                    batch=exp_subgraph.batch,
+                    x=exp_subgraph.x, edge_index=exp_subgraph.edge_index, batch=exp_subgraph.batch
                 )
             # soft_pred: [bsz, num_class]
-            res_acc = (
-                (y_pred == soft_pred.argmax(dim=-1))
-                .detach()
-                .cpu()
-                .float()
-                .view(-1, 1)
-                .numpy()
-            )
+            res_acc = (y_pred == soft_pred.argmax(dim=-1)).detach().cpu().float().view(-1, 1).numpy()
             labels = torch.LongTensor([[i] for i in y_pred]).to(y_pred.device)
             if not if_cf:
-                res_fid = (
-                    soft_pred.gather(1, labels)
-                    .detach()
-                    .cpu()
-                    .float()
-                    .view(-1, 1)
-                    .numpy()
-                )
+                res_fid = soft_pred.gather(1, labels).detach().cpu().float().view(-1, 1).numpy()
             else:
-                res_fid = (
-                    (1 - soft_pred.gather(1, labels))
-                    .detach()
-                    .cpu()
-                    .float()
-                    .view(-1, 1)
-                    .numpy()
-                )
+                res_fid = (1 - soft_pred.gather(1, labels)).detach().cpu().float().view(-1, 1).numpy()
             acc = np.concatenate([acc, res_acc], axis=1)  # [bsz, len_ratio_list]
             fidelity = np.concatenate([fidelity, res_fid], axis=1)
         return acc, fidelity
 
     def visualize(
-        self,
-        graph=None,
-        edge_imp=None,
-        counter_edge_index=None,
-        vis_ratio=0.2,
-        save=False,
-        layout=False,
-        name=None,
+        self, graph=None, edge_imp=None, counter_edge_index=None, vis_ratio=0.2, save=False, layout=False, name=None
     ):
         """
-        Current: visualization for xx-Motif / Mutag
-        TODO: BBBP / node classification visualization
+        Visualize the attribution scores for edges (xx-Motif / Mutag)
+        # TODO: visualization for BBBP / node classification
+        :param graph: the original graph
+        :param edge_imp: the attribution scores for edges
+        :param counter_edge_index: the counterfactual edges
+        :param vis_ratio: the ratio of edges to be visualized
+        :param save: whether to save the visualization
+        :param layout: whether to use the layout
+        :param name: the name of the visualization
+        :return: None
         """
         if graph is None:
             assert self.last_result is not None
@@ -209,11 +191,7 @@ class Explainer(object):
         if counter_edge_index is not None:
             G.add_edges_from(list(counter_edge_index.cpu().numpy().T))
         if self.vis_dict is None:
-            self.vis_dict = (
-                vis_dict[self.model_name]
-                if self.model_name in vis_dict.keys()
-                else vis_dict["default"]
-            )
+            self.vis_dict = vis_dict[self.model_name] if self.model_name in vis_dict.keys() else vis_dict["default"]
 
         folder = Path(r"image/%s" % (self.model_name))
         if save and not os.path.exists(folder):
@@ -224,12 +202,8 @@ class Explainer(object):
         vmax = sum(edge_pos_mask)
         node_pos_mask = np.zeros(graph.num_nodes, dtype=np.bool_)
         node_neg_mask = np.zeros(graph.num_nodes, dtype=np.bool_)
-        node_pos_idx = np.unique(
-            graph.edge_index[:, edge_pos_mask].cpu().numpy()
-        ).tolist()
-        node_neg_idx = list(
-            set([i for i in range(graph.num_nodes)]) - set(node_pos_idx)
-        )
+        node_pos_idx = np.unique(graph.edge_index[:, edge_pos_mask].cpu().numpy()).tolist()
+        node_neg_idx = list(set([i for i in range(graph.num_nodes)]) - set(node_pos_idx))
         node_pos_mask[node_pos_idx] = True
         node_neg_mask[node_neg_idx] = True
 
@@ -306,9 +280,7 @@ class Explainer(object):
             def add_atom_index(mol):
                 atoms = mol.GetNumAtoms()
                 for i in range(atoms):
-                    mol.GetAtomWithIdx(i).SetProp(
-                        "molAtomMapNumber", str(mol.GetAtomWithIdx(i).GetIdx())
-                    )
+                    mol.GetAtomWithIdx(i).SetProp("molAtomMapNumber", str(mol.GetAtomWithIdx(i).GetIdx()))
                 return mol
 
             hit_bonds = []
@@ -329,18 +301,8 @@ class Explainer(object):
             image.show()
             if save:
                 if name:
-                    d.WriteDrawingText(
-                        "image/%s/%s-%d-%s.png"
-                        % (self.model_name, name, int(graph.y[0]), self.name)
-                    )
+                    d.WriteDrawingText("image/%s/%s-%d-%s.png" % (self.model_name, name, int(graph.y[0]), self.name))
                 else:
                     d.WriteDrawingText(
-                        "image/%s/%s-%d-%s.png"
-                        % (
-                            self.model_name,
-                            str(graph.name[0]),
-                            int(graph.y[0]),
-                            self.name,
-                        )
+                        "image/%s/%s-%d-%s.png" % (self.model_name, str(graph.name[0]), int(graph.y[0]), self.name)
                     )
-            return
