@@ -65,24 +65,12 @@ def parse_args():
     parser.add_argument("--epoch", type=int, default=300, help="Number of epoch.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
+    parser.add_argument("--verbose", type=int, default=10, help="Interval of evaluation.")
+    parser.add_argument("--num_unit", type=int, default=4, help="number of Convolution layers(units)")
     parser.add_argument(
-        "--verbose", type=int, default=10, help="Interval of evaluation."
+        "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument(
-        "--num_unit", type=int, default=4, help="number of Convolution layers(units)"
-    )
-    parser.add_argument(
-        "--random_label",
-        type=bool,
-        default=False,
-        help="train a model under label randomization for sanity check",
-    )
-    parser.add_argument(
-        "--with_attr",
-        type=bool,
-        default=False,
-        help="train a model with edge attributes",
-    )
+    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
 
     return parser.parse_args()
 
@@ -103,9 +91,7 @@ class BBBP_GCN(torch.nn.Module):
         self.relus.extend([ReLU()] * conv_unit)
         self.edge_emb = Lin(3, 128)
         # self.lin1 = Lin(128, 128)
-        self.ffn = nn.Sequential(
-            *([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)])
-        )
+        self.ffn = nn.Sequential(*([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)]))
 
         self.softmax = Softmax(dim=1)
 
@@ -180,17 +166,11 @@ class BBBP_GCN_attr(torch.nn.Module):
         self.batch_norms.extend([BatchNorm(128)] * conv_unit)
         self.relus.extend([ReLU()] * conv_unit)
         # self.lin1 = Lin(128, 128)
-        self.ffn = nn.Sequential(
-            *([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)])
-        )
+        self.ffn = nn.Sequential(*([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)]))
         self.softmax = Softmax(dim=1)
 
     def forward(self, x, edge_index, edge_attr, batch):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             # x = relu(batch_norm(x))
@@ -202,11 +182,7 @@ class BBBP_GCN_attr(torch.nn.Module):
         return pred
 
     def get_pred(self, x, edge_index, edge_attr, batch):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
             # x = relu(batch_norm(x))
@@ -219,11 +195,7 @@ class BBBP_GCN_attr(torch.nn.Module):
         return self.readout, pred
 
     def get_emb(self, x, edge_index, edge_attr, batch):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight)
             # x = relu(batch_norm(x))
@@ -270,36 +242,20 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    model = (
-        BBBP_GCN_attr(args.num_unit).to(device)
-        if args.with_attr
-        else BBBP_GCN(args.num_unit).to(device)
-    )
+    model = BBBP_GCN_attr(args.num_unit).to(device) if args.with_attr else BBBP_GCN(args.num_unit).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5
-    )
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5)
     min_error = None
     for epoch in range(1, args.epoch + 1):
         t1 = time.time()
         lr = scheduler.optimizer.param_groups[0]["lr"]
 
-        loss = Gtrain(
-            train_loader,
-            model,
-            optimizer,
-            device=device,
-            criterion=nn.CrossEntropyLoss(),
-        )
+        loss = Gtrain(train_loader, model, optimizer, device=device, criterion=nn.CrossEntropyLoss())
 
-        _, train_acc = Gtest(
-            train_loader, model, device=device, criterion=nn.CrossEntropyLoss()
-        )
+        _, train_acc = Gtest(train_loader, model, device=device, criterion=nn.CrossEntropyLoss())
 
-        val_error, val_acc = Gtest(
-            val_loader, model, device=device, criterion=nn.CrossEntropyLoss()
-        )
+        val_error, val_acc = Gtest(val_loader, model, device=device, criterion=nn.CrossEntropyLoss())
         scheduler.step(val_error)
         if min_error is None or val_error <= min_error:
             min_error = val_error
@@ -307,23 +263,17 @@ if __name__ == "__main__":
         t2 = time.time()
 
         if epoch % args.verbose == 0:
-            test_error, test_acc = Gtest(
-                test_loader, model, device=device, criterion=nn.CrossEntropyLoss()
-            )
+            test_error, test_acc = Gtest(test_loader, model, device=device, criterion=nn.CrossEntropyLoss())
             t3 = time.time()
             print(
                 "Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Test Loss: {:.5f}, "
-                "Test acc: {:.5f}".format(
-                    epoch, t3 - t1, lr, loss, test_error, test_acc
-                )
+                "Test acc: {:.5f}".format(epoch, t3 - t1, lr, loss, test_error, test_acc)
             )
             continue
 
         print(
             "Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Train acc: {:.5f}, Validation Loss: {:.5f}, "
-            "Validation acc: {:5f}".format(
-                epoch, t2 - t1, lr, loss, train_acc, val_error, val_acc
-            )
+            "Validation acc: {:5f}".format(epoch, t2 - t1, lr, loss, train_acc, val_error, val_acc)
         )
 
     if args.with_attr:

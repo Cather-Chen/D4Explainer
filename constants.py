@@ -43,7 +43,5 @@ def add_dataset_args(parser):
 
 
 def add_explainer_args(parser):
-    parser.add_argument(
-        "--explainer", type=str, default="DiffExplainer", choices=explainer_choices
-    )
+    parser.add_argument("--explainer", type=str, default="DiffExplainer", choices=explainer_choices)
     return parser

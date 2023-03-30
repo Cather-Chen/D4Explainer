@@ -17,9 +17,7 @@ EPS = 1
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Mutag Model")
 
-    parser.add_argument(
-        "--data_name", nargs="?", default="Tree_Cycle", help="Input data path."
-    )
+    parser.add_argument("--data_name", nargs="?", default="Tree_Cycle", help="Input data path.")
     parser.add_argument(
         "--model_path",
         nargs="?",
@@ -31,17 +29,10 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument("--hidden", type=int, default=128, help="hiden size.")
+    parser.add_argument("--verbose", type=int, default=10, help="Interval of evaluation.")
+    parser.add_argument("--num_unit", type=int, default=3, help="number of Convolution layers(units)")
     parser.add_argument(
-        "--verbose", type=int, default=10, help="Interval of evaluation."
-    )
-    parser.add_argument(
-        "--num_unit", type=int, default=3, help="number of Convolution layers(units)"
-    )
-    parser.add_argument(
-        "--random_label",
-        type=bool,
-        default=False,
-        help="train a model under label randomization for sanity check",
+        "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
 
     return parser.parse_args()
@@ -73,13 +64,7 @@ if __name__ == "__main__":
     df["comp-1"] = Z[:, 0]
     df["comp-2"] = Z[:, 1]
 
-    sns.scatterplot(
-        x="comp-1",
-        y="comp-2",
-        hue=df.y.tolist(),
-        palette=sns.color_palette("hls", 2),
-        data=df,
-    )
+    sns.scatterplot(x="comp-1", y="comp-2", hue=df.y.tolist(), palette=sns.color_palette("hls", 2), data=df)
     plt.title("T-SNE projection of Tree-Cycle", fontsize=20)
     plt.xlabel("Dimension 1", fontsize=10)
     plt.ylabel("Dimension 2", fontsize=10)

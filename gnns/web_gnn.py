@@ -23,9 +23,7 @@ EPS = 1
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Mutag Model")
 
-    parser.add_argument(
-        "--data_name", nargs="?", default="Cornell", help="Input data path."
-    )
+    parser.add_argument("--data_name", nargs="?", default="Cornell", help="Input data path.")
     parser.add_argument(
         "--model_path",
         nargs="?",
@@ -37,24 +35,12 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=4, help="Batch size.")
     parser.add_argument("--hidden", type=int, default=32, help="hidden size.")
+    parser.add_argument("--verbose", type=int, default=10, help="Interval of evaluation.")
+    parser.add_argument("--num_unit", type=int, default=6, help="number of Convolution layers(units)")
     parser.add_argument(
-        "--verbose", type=int, default=10, help="Interval of evaluation."
+        "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument(
-        "--num_unit", type=int, default=6, help="number of Convolution layers(units)"
-    )
-    parser.add_argument(
-        "--random_label",
-        type=bool,
-        default=False,
-        help="train a model under label randomization for sanity check",
-    )
-    parser.add_argument(
-        "--with_attr",
-        type=bool,
-        default=False,
-        help="train a model with edge attributes",
-    )
+    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
 
     return parser.parse_args()
 
@@ -64,11 +50,7 @@ class SReLU(nn.Module):
 
     def __init__(self, nc, bias):
         super(SReLU, self).__init__()
-        self.srelu_bias = nn.Parameter(
-            torch.Tensor(
-                nc,
-            )
-        )
+        self.srelu_bias = nn.Parameter(torch.Tensor(nc))
         self.srelu_relu = nn.ReLU(inplace=True)
         nn.init.constant_(self.srelu_bias, bias)
 
@@ -108,13 +90,9 @@ class EGNNConv(MessagePassing):
     @staticmethod
     def norm(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None):
         if edge_weight is None:
-            edge_weight = torch.ones(
-                (edge_index.size(1),), dtype=dtype, device=edge_index.device
-            )
+            edge_weight = torch.ones((edge_index.size(1),), dtype=dtype, device=edge_index.device)
         fill_value = 1 if not improved else 2
-        edge_index, edge_weight = add_remaining_self_loops(
-            edge_index, edge_weight, fill_value, num_nodes
-        )
+        edge_index, edge_weight = add_remaining_self_loops(edge_index, edge_weight, fill_value, num_nodes)
         row, col = edge_index
         deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
         deg_inv_sqrt = deg.pow(-0.5)
@@ -122,9 +100,7 @@ class EGNNConv(MessagePassing):
 
         return edge_index, deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
 
-    def forward(
-        self, x, edge_index, x_0=None, beta=0.0, residual_weight=0.0, edge_weight=None
-    ):
+    def forward(self, x, edge_index, x_0=None, beta=0.0, residual_weight=0.0, edge_weight=None):
         """"""
         x_input = x
         if self.cached and self.cached_result is not None:
@@ -132,16 +108,12 @@ class EGNNConv(MessagePassing):
                 raise RuntimeError(
                     "Cached {} number of edges, but found {}. Please "
                     "disable the caching behavior of this layer by removing "
-                    "the `cached=True` argument in its constructor.".format(
-                        self.cached_num_edges, edge_index.size(1)
-                    )
+                    "the `cached=True` argument in its constructor.".format(self.cached_num_edges, edge_index.size(1))
                 )
 
         if not self.cached or self.cached_result is None:
             self.cached_num_edges = edge_index.size(1)
-            edge_index, norm = self.norm(
-                edge_index, x.size(0), edge_weight, self.improved, x.dtype
-            )
+            edge_index, norm = self.norm(edge_index, x.size(0), edge_weight, self.improved, x.dtype)
             self.cached_result = edge_index, norm
 
         edge_index, norm = self.cached_result
@@ -159,15 +131,11 @@ class EGNNConv(MessagePassing):
         return aggr_out
 
     def __repr__(self):
-        return "{}({}, {})".format(
-            self.__class__.__name__, self.in_channels, self.out_channels
-        )
+        return "{}({}, {})".format(self.__class__.__name__, self.in_channels, self.out_channels)
 
 
 class EGNN(nn.Module):
-    def __init__(
-        self, num_node_features, hidden_channels, num_classes, num_layers, dropout=0.6
-    ):
+    def __init__(self, num_node_features, hidden_channels, num_classes, num_layers, dropout=0.6):
         super(EGNN, self).__init__()
         # self.dataset = args.dataset
         self.num_layers = num_layers
@@ -192,22 +160,14 @@ class EGNN(nn.Module):
         for i in range(self.num_layers):
             c_max = self.c_max if i == 0 else 1.0
             self.layers_GCN.append(
-                EGNNConv(
-                    self.dim_hidden,
-                    self.dim_hidden,
-                    c_max=c_max,
-                    cached=self.cached,
-                    bias=False,
-                )
+                EGNNConv(self.dim_hidden, self.dim_hidden, c_max=c_max, cached=self.cached, bias=False)
             )
             self.layers_activation.append(SReLU(self.dim_hidden, self.bias_SReLU))
             self.reg_params.append(self.layers_GCN[-1].weight)
 
         self.input_layer = torch.nn.Linear(self.num_feats, self.dim_hidden)
         self.output_layer = torch.nn.Linear(self.dim_hidden, self.num_classes)
-        self.non_reg_params = list(self.input_layer.parameters()) + list(
-            self.output_layer.parameters()
-        )
+        self.non_reg_params = list(self.input_layer.parameters()) + list(self.output_layer.parameters())
         self.srelu_params = list(self.layers_activation[:-1].parameters())
 
     def forward(self, x, edge_index):
@@ -220,13 +180,7 @@ class EGNN(nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
             residual_weight = self.c_min - self.beta
 
-            x = self.layers_GCN[i](
-                x,
-                edge_index,
-                original_x,
-                beta=self.beta,
-                residual_weight=residual_weight,
-            )
+            x = self.layers_GCN[i](x, edge_index, original_x, beta=self.beta, residual_weight=residual_weight)
             # x = self.layers_bn[i](x)
             x = self.layers_activation[i](x)
 
@@ -243,13 +197,7 @@ class EGNN(nn.Module):
         for i in range(self.num_layers):
             x = F.dropout(x, p=self.dropout, training=self.training)
             residual_weight = self.c_min - self.beta
-            x = self.layers_GCN[i](
-                x,
-                edge_index,
-                original_x,
-                beta=self.beta,
-                residual_weight=residual_weight,
-            )
+            x = self.layers_GCN[i](x, edge_index, original_x, beta=self.beta, residual_weight=residual_weight)
             x = self.layers_bn[i](x)
             x = self.layers_activation[i](x)
 
@@ -271,12 +219,7 @@ class EGNN(nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
             residual_weight = self.c_min - self.beta
             x = self.layers_GCN[i](
-                x,
-                edge_index,
-                original_x,
-                beta=self.beta,
-                residual_weight=residual_weight,
-                edge_weight=edge_mask,
+                x, edge_index, original_x, beta=self.beta, residual_weight=residual_weight, edge_weight=edge_mask
             )
             x = self.layers_activation[i](x)
         x = F.dropout(x, p=self.output_dropout, training=self.training)
@@ -288,9 +231,7 @@ class EGNN(nn.Module):
 
 
 class EGNN_attr(nn.Module):
-    def __init__(
-        self, num_node_features, hidden_channels, num_classes, num_layers, dropout=0.6
-    ):
+    def __init__(self, num_node_features, hidden_channels, num_classes, num_layers, dropout=0.6):
         super(EGNN_attr, self).__init__()
         # self.dataset = args.dataset
         self.num_layers = num_layers
@@ -315,30 +256,18 @@ class EGNN_attr(nn.Module):
         for i in range(self.num_layers):
             c_max = self.c_max if i == 0 else 1.0
             self.layers_GCN.append(
-                EGNNConv(
-                    self.dim_hidden,
-                    self.dim_hidden,
-                    c_max=c_max,
-                    cached=self.cached,
-                    bias=False,
-                )
+                EGNNConv(self.dim_hidden, self.dim_hidden, c_max=c_max, cached=self.cached, bias=False)
             )
             self.layers_activation.append(SReLU(self.dim_hidden, self.bias_SReLU))
             self.reg_params.append(self.layers_GCN[-1].weight)
 
         self.input_layer = torch.nn.Linear(self.num_feats, self.dim_hidden)
         self.output_layer = torch.nn.Linear(self.dim_hidden, self.num_classes)
-        self.non_reg_params = list(self.input_layer.parameters()) + list(
-            self.output_layer.parameters()
-        )
+        self.non_reg_params = list(self.input_layer.parameters()) + list(self.output_layer.parameters())
         self.srelu_params = list(self.layers_activation[:-1].parameters())
 
     def forward(self, x, edge_index, edge_attr=None):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.input_layer(x)
         x = F.relu(x)
@@ -349,12 +278,7 @@ class EGNN_attr(nn.Module):
             residual_weight = self.c_min - self.beta
 
             x = self.layers_GCN[i](
-                x,
-                edge_index,
-                original_x,
-                edge_weight=edge_weight,
-                beta=self.beta,
-                residual_weight=residual_weight,
+                x, edge_index, original_x, edge_weight=edge_weight, beta=self.beta, residual_weight=residual_weight
             )
             # x = self.layers_bn[i](x)
             x = self.layers_activation[i](x)
@@ -364,11 +288,7 @@ class EGNN_attr(nn.Module):
         return x
 
     def get_node_pred_subgraph(self, x, edge_index, edge_attr=None, mapping=None):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.input_layer(x)
         x = F.relu(x)
@@ -378,12 +298,7 @@ class EGNN_attr(nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
             residual_weight = self.c_min - self.beta
             x = self.layers_GCN[i](
-                x,
-                edge_index,
-                original_x,
-                edge_weight=edge_weight,
-                beta=self.beta,
-                residual_weight=residual_weight,
+                x, edge_index, original_x, edge_weight=edge_weight, beta=self.beta, residual_weight=residual_weight
             )
             x = self.layers_bn[i](x)
             x = self.layers_activation[i](x)
@@ -401,31 +316,19 @@ if __name__ == "__main__":
     args = parse_args()
     device = torch.device(f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu")
     name = args.data_name
-    file_dir = osp.join(
-        osp.dirname(__file__), "..", "data", name, "processed/whole_graph.pt"
-    )
+    file_dir = osp.join(osp.dirname(__file__), "..", "data", name, "processed/whole_graph.pt")
     data = torch.load(file_dir)
     data.to(device)
     n_input = data.x.size(1)
     n_labels = int(torch.unique(data.y).size(0))
     if args.with_attr:
-        model = EGNN_attr(
-            n_input,
-            hidden_channels=args.hidden,
-            num_classes=n_labels,
-            num_layers=args.num_unit,
-        ).to(device)
+        model = EGNN_attr(n_input, hidden_channels=args.hidden, num_classes=n_labels, num_layers=args.num_unit).to(
+            device
+        )
     else:
-        model = EGNN(
-            n_input,
-            hidden_channels=args.hidden,
-            num_classes=n_labels,
-            num_layers=args.num_unit,
-        ).to(device)
+        model = EGNN(n_input, hidden_channels=args.hidden, num_classes=n_labels, num_layers=args.num_unit).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5
-    )
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5)
     min_error = None
     criterion = nn.CrossEntropyLoss()
 
@@ -452,11 +355,7 @@ if __name__ == "__main__":
         loss_test = criterion(output[data.test_mask], data.y[data.test_mask])
         y_pred = torch.argmax(output, dim=1)
         acc_test = accuracy(y_pred[data.test_mask], data.y[data.test_mask])
-        print(
-            "Test set results:",
-            "loss= {:.4f}".format(loss_test.item()),
-            "accuracy= {:.4f}".format(acc_test),
-        )
+        print("Test set results:", "loss= {:.4f}".format(loss_test.item()), "accuracy= {:.4f}".format(acc_test))
         return loss_test, y_pred
 
     for epoch in range(1, args.epoch + 1):

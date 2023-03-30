@@ -14,9 +14,7 @@ from utils.dataset import get_datasets
 def parse_args():
     parser = argparse.ArgumentParser(description="Train explainers")
     parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
-    parser.add_argument(
-        "--root", type=str, default="results/", help="Result directory."
-    )
+    parser.add_argument("--root", type=str, default="results/", help="Result directory.")
     parser = add_dataset_args(parser)
     parser = add_explainer_args(parser)
 
@@ -44,38 +42,19 @@ args = parse_args()
 args.device = torch.device(f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu")
 mr = [0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5]
 results = {}
-for dataset in [
-    "BA_shapes",
-    "Tree_Cycle",
-    "Tree_Grids",
-    "cornell",
-    "mutag",
-    "ba3",
-    "bbbp",
-    "NCI1",
-]:
+for dataset in ["BA_shapes", "Tree_Cycle", "Tree_Grids", "cornell", "mutag", "ba3", "bbbp", "NCI1"]:
     data_wise_resutls = {}
     args.dataset = dataset
     args.feature_in = feature_dict[args.dataset]
     args.task = task_type[args.dataset]
     train_dataset, val_dataset, test_dataset = get_datasets(name=args.dataset)
-    test_loader = DataLoader(
-        test_dataset[: args.num_test], batch_size=1, shuffle=False, drop_last=False
-    )
+    test_loader = DataLoader(test_dataset[: args.num_test], batch_size=1, shuffle=False, drop_last=False)
     gnn_path = f"param/gnns/{args.dataset}_{args.gnn_type}.pt"
-    for ex in [
-        "PGExplainer",
-        "CF_Explainer",
-        "GNNExplainer",
-        "PGMExplainer",
-        "CXPlain",
-    ]:
+    for ex in ["PGExplainer", "CF_Explainer", "GNNExplainer", "PGMExplainer", "CXPlain"]:
         data_wise_resutls[ex] = []
         args.explainer = ex
         if args.explainer in ["PGExplainer"]:
-            explainer = eval(args.explainer)(
-                args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
-            )
+            explainer = eval(args.explainer)(args.device, gnn_path, task=args.task, n_in_channels=args.feature_in)
         else:
             explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
         acc_logger, fid_logger = [], []
@@ -83,9 +62,7 @@ for dataset in [
         for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph.to(args.device)
             edge_imp = explainer.explain_graph(graph)
-            acc, fidelity = explainer.evaluate_acc(
-                mr, graph=graph, imp=edge_imp, if_cf=True
-            )
+            acc, fidelity = explainer.evaluate_acc(mr, graph=graph, imp=edge_imp, if_cf=True)
             acc_logger.append(acc)
             fid_logger.append(fidelity)
         S_A = np.mean(acc_logger, axis=0, keepdims=False)[0]
@@ -105,18 +82,14 @@ for dataset in [
     for ex in ["SAExplainer", "GradCam", "IGExplainer", "RandomCaster"]:
         data_wise_resutls[ex] = []
         args.explainer = ex
-        explainer = eval(args.explainer)(
-            args.device, gnn_path, task=args.task, ds=args.dataset
-        )
+        explainer = eval(args.explainer)(args.device, gnn_path, task=args.task, ds=args.dataset)
 
         acc_logger, fid_logger = [], []
         # for graph in tqdm(iter(test_loader), total=len(test_loader)):
         for graph in tqdm(iter(test_loader), total=len(test_loader)):
             graph.to(args.device)
             edge_imp = explainer.explain_graph(graph)
-            acc, fidelity = explainer.evaluate_acc(
-                mr, graph=graph, imp=edge_imp, if_cf=True
-            )
+            acc, fidelity = explainer.evaluate_acc(mr, graph=graph, imp=edge_imp, if_cf=True)
             acc_logger.append(acc)
             fid_logger.append(fidelity)
         S_A = np.mean(acc_logger, axis=0, keepdims=False)[0]

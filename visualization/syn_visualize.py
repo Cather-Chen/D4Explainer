@@ -21,9 +21,7 @@ from utils.dataset import get_datasets
 def parse_args():
     parser = argparse.ArgumentParser(description="explanation visualization")
     parser.add_argument("--cuda", type=int, default=0, help="GPU device.")
-    parser.add_argument(
-        "--root", type=str, default="results/", help="Result directory."
-    )
+    parser.add_argument("--root", type=str, default="results/", help="Result directory.")
     parser = add_dataset_args(parser)
     parser = add_explainer_args(parser)
     # gflow explainer related parameters
@@ -64,13 +62,9 @@ def visualize(
     pred_diff,
     save=True,
 ):
-    vis_setting = (
-        vis_dict[dataset] if dataset in vis_dict.keys() else vis_dict["default"]
-    )
+    vis_setting = vis_dict[dataset] if dataset in vis_dict.keys() else vis_dict["default"]
     if explainer in ["CF_Explainer", "PGExplainer"]:
-        topk = min(
-            max(math.ceil((1 - vis_ratio) * graph.num_edges), 1), graph.num_edges
-        )
+        topk = min(max(math.ceil((1 - vis_ratio) * graph.num_edges), 1), graph.num_edges)
         idx = np.argsort(-edge_imp)[:topk]
     else:
         topk = min(max(math.ceil(vis_ratio * graph.num_edges), 1), graph.num_edges)
@@ -254,17 +248,10 @@ args.noise_list = None
 args.feature_in = feature_dict[args.dataset]
 args.task = task_type[args.dataset]
 _, _, test_dataset = get_datasets(name=args.dataset)
-test_loader = DataLoader(
-    test_dataset[args.num_start : args.num_end],
-    batch_size=1,
-    shuffle=False,
-    drop_last=False,
-)
+test_loader = DataLoader(test_dataset[args.num_start : args.num_end], batch_size=1, shuffle=False, drop_last=False)
 gnn_path = f"param/gnns/{args.dataset}_{args.gnn_type}.pt"
 if args.explainer in ["PGExplainer"]:
-    explainer = eval(args.explainer)(
-        args.device, gnn_path, task=args.task, n_in_channels=args.feature_in
-    )
+    explainer = eval(args.explainer)(args.device, gnn_path, task=args.task, n_in_channels=args.feature_in)
 else:
     explainer = eval(args.explainer)(args.device, gnn_path, task=args.task)
 diff_e = DiffExplainer(args.device, gnn_path)
@@ -273,20 +260,14 @@ for graph in tqdm(iter(test_loader), total=len(test_loader)):
     if y != 0:
         graph.to(args.device)
         edge_imp = explainer.explain_graph(graph)
-        exp_subgraph = explainer.pack_explanatory_subgraph(
-            top_ratio=mr, graph=graph, imp=edge_imp, if_cf=True
-        )
+        exp_subgraph = explainer.pack_explanatory_subgraph(top_ratio=mr, graph=graph, imp=edge_imp, if_cf=True)
         if args.task == "nc":
             output_prob, _ = explainer.model.get_node_pred_subgraph(
-                x=exp_subgraph.x,
-                edge_index=exp_subgraph.edge_index,
-                mapping=exp_subgraph.mapping,
+                x=exp_subgraph.x, edge_index=exp_subgraph.edge_index, mapping=exp_subgraph.mapping
             )
         else:
             output_prob, _ = explainer.model.get_pred(
-                x=exp_subgraph.x,
-                edge_index=exp_subgraph.edge_index,
-                batch=exp_subgraph.batch,
+                x=exp_subgraph.x, edge_index=exp_subgraph.edge_index, batch=exp_subgraph.batch
             )
         y_pred_cf = output_prob.argmax(dim=-1)
         edge_index_diff, _, y_exp_diff, modif_r = diff_e.explain_evaluation(args, graph)

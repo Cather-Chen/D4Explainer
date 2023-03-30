@@ -19,9 +19,7 @@ EPS = 1
 def parse_args():
     parser = argparse.ArgumentParser(description="Train Mutag Model")
 
-    parser.add_argument(
-        "--data_name", nargs="?", default="Tree_Grids", help="Input data path."
-    )
+    parser.add_argument("--data_name", nargs="?", default="Tree_Grids", help="Input data path.")
     parser.add_argument(
         "--model_path",
         nargs="?",
@@ -33,24 +31,12 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument("--hidden", type=int, default=128, help="hiden size.")
+    parser.add_argument("--verbose", type=int, default=10, help="Interval of evaluation.")
+    parser.add_argument("--num_unit", type=int, default=4, help="number of Convolution layers(units)")
     parser.add_argument(
-        "--verbose", type=int, default=10, help="Interval of evaluation."
+        "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument(
-        "--num_unit", type=int, default=4, help="number of Convolution layers(units)"
-    )
-    parser.add_argument(
-        "--random_label",
-        type=bool,
-        default=False,
-        help="train a model under label randomization for sanity check",
-    )
-    parser.add_argument(
-        "--with_attr",
-        type=bool,
-        default=False,
-        help="train a model with edge attributes",
-    )
+    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
 
     return parser.parse_args()
 
@@ -70,12 +56,7 @@ class Syn_GCN_TG(torch.nn.Module):
         self.batch_norms.extend([BatchNorm(n_hid)] * num_unit)
 
         # self.lin1 = Lin(128, 128)
-        self.ffn = nn.Sequential(
-            *(
-                [nn.Linear(n_hid, n_hid)]
-                + [ReLU(), nn.Dropout(), nn.Linear(n_hid, n_out)]
-            )
-        )
+        self.ffn = nn.Sequential(*([nn.Linear(n_hid, n_hid)] + [ReLU(), nn.Dropout(), nn.Linear(n_hid, n_out)]))
 
         self.softmax = Softmax(dim=1)
         self.dropout = 0.6
@@ -140,22 +121,13 @@ class Syn_GCN_TG_attr(torch.nn.Module):
             self.convs.append(GCNConv(in_channels=n_hid, out_channels=n_hid))
         self.convs.append(GCNConv(in_channels=n_hid, out_channels=n_hid))
         self.batch_norms.extend([BatchNorm(n_hid)] * num_unit)
-        self.ffn = nn.Sequential(
-            *(
-                [nn.Linear(n_hid, n_hid)]
-                + [ReLU(), nn.Dropout(), nn.Linear(n_hid, n_out)]
-            )
-        )
+        self.ffn = nn.Sequential(*([nn.Linear(n_hid, n_hid)] + [ReLU(), nn.Dropout(), nn.Linear(n_hid, n_out)]))
 
         self.softmax = Softmax(dim=1)
         self.dropout = 0.6
 
     def forward(self, x, edge_index, edge_attr=None):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             # x = F.dropout(x, self.dropout, training=self.training)
@@ -168,11 +140,7 @@ class Syn_GCN_TG_attr(torch.nn.Module):
         return pred
 
     def get_node_reps(self, x, edge_index, edge_attr=None):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             x = relu(x)
@@ -181,11 +149,7 @@ class Syn_GCN_TG_attr(torch.nn.Module):
         return node_x
 
     def get_node_pred_subgraph(self, x, edge_index, edge_attr=None, mapping=None):
-        edge_weight = (
-            torch.ones((edge_index.size(1),), device=edge_index.device)
-            if edge_attr is None
-            else edge_attr
-        )
+        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
         for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
             x = conv(x, edge_index, edge_weight=edge_weight)
             # x = F.dropout(x, self.dropout, training=self.training)
@@ -208,26 +172,18 @@ if __name__ == "__main__":
     args = parse_args()
     device = torch.device(f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu")
     name = args.data_name
-    file_dir = osp.join(
-        osp.dirname(__file__), "..", "data", name, "processed/whole_graph.pt"
-    )
+    file_dir = osp.join(osp.dirname(__file__), "..", "data", name, "processed/whole_graph.pt")
     data = torch.load(file_dir)
     data.to(device)
     n_input = data.x.size(1)
     n_labels = int(torch.unique(data.y).size(0))
     if args.with_attr:
-        model = Syn_GCN_TG_attr(
-            args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden
-        ).to(device)
+        model = Syn_GCN_TG_attr(args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden).to(device)
     else:
-        model = Syn_GCN_TG(
-            args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden
-        ).to(device)
+        model = Syn_GCN_TG(args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5
-    )
+    scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5)
     min_error = None
     criterion = nn.CrossEntropyLoss()
 
@@ -254,11 +210,7 @@ if __name__ == "__main__":
         loss_test = criterion(output[data.test_mask], data.y[data.test_mask])
         y_pred = torch.argmax(output, dim=1)
         acc_test = accuracy(y_pred[data.test_mask], data.y[data.test_mask])
-        print(
-            "Test set results:",
-            "loss= {:.4f}".format(loss_test.item()),
-            "accuracy= {:.4f}".format(acc_test),
-        )
+        print("Test set results:", "loss= {:.4f}".format(loss_test.item()), "accuracy= {:.4f}".format(acc_test))
         return loss_test, y_pred
 
     for epoch in range(1, args.epoch + 1):

@@ -19,12 +19,7 @@ def Gtrain(train_loader, model, optimizer, device, criterion=nn.MSELoss()):
     return loss_all / len(train_loader.dataset)
 
 
-def Gtest(
-    test_loader,
-    model,
-    device,
-    criterion=nn.L1Loss(reduction="mean"),
-):
+def Gtest(test_loader, model, device, criterion=nn.L1Loss(reduction="mean")):
     model.eval()
     error = 0
     correct = 0

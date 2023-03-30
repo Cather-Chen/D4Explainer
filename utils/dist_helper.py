@@ -140,10 +140,14 @@ def test():
     s6 = np.array([0.7, 0.3])
     samples3 = [s5, s6]
 
-    # print('between samples1 and samples2: ', compute_emd(samples1, samples2, kernel=gaussian_emd,
-    #                                                      is_parallel=False, sigma=1.0))
-    # print('between samples1 and samples3: ', compute_emd(samples1, samples3, kernel=gaussian_emd,
-    #                                                      is_parallel=False, sigma=1.0))
+    # print(
+    #     "between samples1 and samples2: ",
+    #     compute_emd(samples1, samples2, kernel=gaussian_emd, is_parallel=False, sigma=1.0),
+    # )
+    # print(
+    #     "between samples1 and samples3: ",
+    #     compute_emd(samples1, samples3, kernel=gaussian_emd, is_parallel=False, sigma=1.0),
+    # )
     print(
         "between samples1 and samples2: ",
         compute_mmd(samples1, samples2, kernel=gaussian, is_parallel=True, sigma=1.0),
