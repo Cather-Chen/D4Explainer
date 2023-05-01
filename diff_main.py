@@ -56,4 +56,4 @@ train_dataset, val_dataset, test_dataset = get_datasets(name=args.dataset)
 train_dataset = train_dataset[: args.data_size]
 gnn_path = f"param/gnns/{args.dataset}_{args.gnn_type}.pt"
 explainer = DiffExplainer(args.device, gnn_path)
-explainer.explain_graph_task(args, train_dataset, test_dataset)
+explainer.explain_graph_task(args, train_dataset, val_dataset)
