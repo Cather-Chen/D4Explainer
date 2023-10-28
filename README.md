@@ -14,9 +14,11 @@ Refer to `requirements.txt` for more details.
 ## Dataset
 
 Download the datasets from [here](https://drive.google.com/drive/folders/1pwmeST3zBcSC34KbAL_Wvi-cFtufAOCE?usp=sharing) to `data/`
+
 **Datasets Included:**
-Node classification: `BA_shapes`; `Tree_Cycle`; `Tree_Grids`; `cornell`
-Graph classification: `mutag`; `ba3`; `bbbp`; `NCI1`
+
+- Node classification: `BA_shapes`; `Tree_Cycle`; `Tree_Grids`; `cornell`
+- Graph classification: `mutag`; `ba3`; `bbbp`; `NCI1`
 
 ## Train Base GNNs
 ```
