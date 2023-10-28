@@ -3,7 +3,8 @@ import math
 import os
 import os.path as osp
 import time
-
+import sys
+sys.path.append("..")
 import numpy as np
 import torch
 import torch.nn as nn
@@ -21,9 +22,9 @@ EPS = 1
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train Mutag Model")
+    parser = argparse.ArgumentParser(description="Train Cornell Model")
 
-    parser.add_argument("--data_name", nargs="?", default="Cornell", help="Input data path.")
+    parser.add_argument("--data_name", nargs="?", default="cornell", help="Input data path.")
     parser.add_argument(
         "--model_path",
         nargs="?",
@@ -40,8 +41,6 @@ def parse_args():
     parser.add_argument(
         "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
-
     return parser.parse_args()
 
 
@@ -230,87 +229,6 @@ class EGNN(nn.Module):
         return output_prob, output_repr
 
 
-class EGNN_attr(nn.Module):
-    def __init__(self, num_node_features, hidden_channels, num_classes, num_layers, dropout=0.6):
-        super(EGNN_attr, self).__init__()
-        # self.dataset = args.dataset
-        self.num_layers = num_layers
-        self.num_feats = num_node_features
-        self.num_classes = num_classes
-        self.dim_hidden = hidden_channels
-
-        self.cached = False
-        self.layers_GCN = nn.ModuleList([])
-        self.layers_activation = nn.ModuleList([])
-        self.layers_bn = nn.ModuleList([])
-        self.layers_bn.extend([BatchNorm(self.dim_hidden)] * self.num_layers)
-        self.c_min = 0.2
-        self.c_max = 1
-        self.beta = 0.1
-
-        self.bias_SReLU = -10
-        self.dropout = dropout
-        self.output_dropout = 0.6
-
-        self.reg_params = []
-        for i in range(self.num_layers):
-            c_max = self.c_max if i == 0 else 1.0
-            self.layers_GCN.append(
-                EGNNConv(self.dim_hidden, self.dim_hidden, c_max=c_max, cached=self.cached, bias=False)
-            )
-            self.layers_activation.append(SReLU(self.dim_hidden, self.bias_SReLU))
-            self.reg_params.append(self.layers_GCN[-1].weight)
-
-        self.input_layer = torch.nn.Linear(self.num_feats, self.dim_hidden)
-        self.output_layer = torch.nn.Linear(self.dim_hidden, self.num_classes)
-        self.non_reg_params = list(self.input_layer.parameters()) + list(self.output_layer.parameters())
-        self.srelu_params = list(self.layers_activation[:-1].parameters())
-
-    def forward(self, x, edge_index, edge_attr=None):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.input_layer(x)
-        x = F.relu(x)
-
-        original_x = x
-        for i in range(self.num_layers):
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            residual_weight = self.c_min - self.beta
-
-            x = self.layers_GCN[i](
-                x, edge_index, original_x, edge_weight=edge_weight, beta=self.beta, residual_weight=residual_weight
-            )
-            # x = self.layers_bn[i](x)
-            x = self.layers_activation[i](x)
-
-        x = F.dropout(x, p=self.output_dropout, training=self.training)
-        x = self.output_layer(x)
-        return x
-
-    def get_node_pred_subgraph(self, x, edge_index, edge_attr=None, mapping=None):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.input_layer(x)
-        x = F.relu(x)
-
-        original_x = x
-        for i in range(self.num_layers):
-            x = F.dropout(x, p=self.dropout, training=self.training)
-            residual_weight = self.c_min - self.beta
-            x = self.layers_GCN[i](
-                x, edge_index, original_x, edge_weight=edge_weight, beta=self.beta, residual_weight=residual_weight
-            )
-            x = self.layers_bn[i](x)
-            x = self.layers_activation[i](x)
-
-        x = F.dropout(x, p=self.output_dropout, training=self.training)
-        node_repr = self.output_layer(x)
-        node_prob = F.softmax(node_repr, dim=-1)
-        output_prob = node_prob[mapping]  # [bsz, n_classes]
-        output_repr = node_repr[mapping]  # [bsz, n_classes]
-        return output_prob, output_repr
-
-
 if __name__ == "__main__":
     set_seed(44)
     args = parse_args()
@@ -321,12 +239,7 @@ if __name__ == "__main__":
     data.to(device)
     n_input = data.x.size(1)
     n_labels = int(torch.unique(data.y).size(0))
-    if args.with_attr:
-        model = EGNN_attr(n_input, hidden_channels=args.hidden, num_classes=n_labels, num_layers=args.num_unit).to(
-            device
-        )
-    else:
-        model = EGNN(n_input, hidden_channels=args.hidden, num_classes=n_labels, num_layers=args.num_unit).to(device)
+    model = EGNN(n_input, hidden_channels=args.hidden, num_classes=n_labels, num_layers=args.num_unit).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5)
     min_error = None
@@ -365,7 +278,7 @@ if __name__ == "__main__":
             loss_test, y_pred = eval()
             scheduler.step(loss_test)
 
-    save_path = f"{name}_gcn_attr.pt" if args.with_Attr else f"{name}_gcn.pt"
+    save_path = f"{name}_gcn.pt"
 
     if not osp.exists(args.model_path):
         os.makedirs(args.model_path)
@@ -373,4 +286,3 @@ if __name__ == "__main__":
     labels = data.y[data.test_mask].cpu().numpy()
     pred = y_pred[data.test_mask].cpu().numpy()
     print("y_true counts: {}".format(np.unique(labels, return_counts=True)))
-    print("y_pred_orig counts: {}".format(np.unique(pred, return_counts=True)))

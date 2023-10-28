@@ -3,7 +3,8 @@ import os
 import os.path as osp
 import random
 import time
-
+import sys
+sys.path.append("..")
 import torch
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, Linear, ModuleList, ReLU, Softmax
@@ -38,8 +39,6 @@ def parse_args():
     parser.add_argument(
         "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
-
     return parser.parse_args()
 
 
@@ -65,7 +64,8 @@ class BA3MotifNet(torch.nn.Module):
         self.lin2 = Linear(64, 3)
         self.softmax = Softmax(dim=1)
 
-    def forward(self, x, edge_index, edge_attr, batch):
+    def forward(self, x, edge_index, batch):
+        edge_attr = torch.ones((edge_index.size(1),), device=edge_index.device)
         node_x = self.get_node_reps(x, edge_index, edge_attr, batch)
         graph_x = global_mean_pool(node_x, batch)
         pred = self.relu(self.lin1(graph_x))
@@ -116,84 +116,6 @@ class BA3MotifNet(torch.nn.Module):
                 param.uniform_(-1.0, 1.0)
 
 
-class BA3MotifNet_attr(torch.nn.Module):
-    def __init__(self, num_unit):
-        super().__init__()
-
-        self.num_unit = num_unit
-
-        self.node_emb = Linear(4, 64)
-
-        self.convs = ModuleList()
-        self.batch_norms = ModuleList()
-        self.relus = ModuleList()
-
-        for i in range(num_unit):
-            conv = GCNConv(in_channels=64, out_channels=64)
-            self.convs.append(conv)
-            self.relus.append(ReLU())
-
-        self.lin1 = Linear(64, 64)
-        self.relu = ReLU()
-        self.lin2 = Linear(64, 3)
-        self.softmax = Softmax(dim=1)
-
-    def forward(self, x, edge_index, edge_attr, batch):
-        node_x = self.get_node_reps(x, edge_index, edge_attr, batch)
-        graph_x = global_mean_pool(node_x, batch)
-        pred = self.relu(self.lin1(graph_x))
-        pred = self.lin2(pred)
-        return pred
-
-    def get_node_reps(self, x, edge_index, edge_attr, batch):
-        x = self.node_emb(x)
-        x = F.dropout(x, p=0.4)
-        for conv, relu in zip(self.convs, self.relus):
-            x = conv(x=x, edge_index=edge_index, edge_weight=edge_attr)
-            x = relu(x)
-        x = F.dropout(x, p=0.4)
-        node_x = x
-        return node_x
-
-    def get_graph_rep(self, x, edge_index, edge_attr, batch):
-        node_x = self.get_node_reps(x, edge_index, edge_attr, batch)
-        graph_x = global_mean_pool(node_x, batch)
-        return graph_x
-
-    def get_pred(self, x, edge_index, edge_attr, batch):
-        graph_x = self.get_graph_rep(x, edge_index, edge_attr, batch)
-        pred = self.relu(self.lin1(graph_x))
-        pred = self.lin2(pred)
-        self.readout = self.softmax(pred)
-        return self.readout, pred
-
-    def get_emb(self, x, edge_index, edge_attr, batch):
-        graph_x = self.get_graph_rep(x, edge_index, edge_attr, batch)
-        pred = self.relu(self.lin1(graph_x))
-        return pred
-
-    def get_pred_explain(self, x, edge_index, edge_attr, edge_mask, batch):
-        edge_mask = (edge_mask * EPS).sigmoid()
-        edge_mask = edge_mask * edge_attr
-        x = self.node_emb(x)
-        x = F.dropout(x, p=0.4)
-        for conv, relu in zip(self.convs, self.relus):
-            x = conv(x=x, edge_index=edge_index, edge_weight=edge_mask)
-            x = relu(x)
-        x = F.dropout(x, p=0.4)
-        node_x = x
-        graph_x = global_mean_pool(node_x, batch)
-        pred = self.relu(self.lin1(graph_x))
-        pred = self.lin2(pred)
-        self.readout = self.softmax(pred)
-        return self.readout, pred
-
-    def reset_parameters(self):
-        with torch.no_grad():
-            for param in self.parameters():
-                param.uniform_(-1.0, 1.0)
-
-
 if __name__ == "__main__":
     set_seed(0)
     args = parse_args()
@@ -210,7 +132,7 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    model = BA3MotifNet_attr(args.num_unit).to(device) if args.with_attr else BA3MotifNet(args.num_unit).to(device)
+    model = BA3MotifNet(args.num_unit).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-4)
     min_error = None
@@ -242,11 +164,7 @@ if __name__ == "__main__":
             "Epoch{:4d}[{:.3f}s]: LR: {:.5f}, Loss: {:.5f}, Train acc: {:.5f}, Validation Loss: {:.5f}, "
             "Validation acc: {:5f}".format(epoch, t2 - t1, lr, loss, train_acc, val_error, val_acc)
         )
-
-    if args.with_attr:
-        save_path = "ba3_gcn_attr.pt"
-    else:
-        save_path = "ba3_gcn.pt"
+    save_path = "ba3_gcn.pt"
     if not osp.exists(args.model_path):
         os.makedirs(args.model_path)
     torch.save(model.cpu(), osp.join(args.model_path, save_path))

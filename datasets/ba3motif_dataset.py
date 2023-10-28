@@ -1,6 +1,7 @@
 import os.path as osp
 import random
-
+import sys
+sys.path.append("..")
 import numpy as np
 import torch
 from torch_geometric.data import Data, InMemoryDataset

@@ -18,7 +18,7 @@ def Gtrain(train_loader, model, optimizer, device, criterion=nn.MSELoss()):
     for data in train_loader:
         data.to(device)
         optimizer.zero_grad()
-        out = model(data.x, data.edge_index, data.edge_attr, data.batch)
+        out = model(data.x, data.edge_index, data.batch)
         loss = criterion(out, data.y)
         loss.backward()
         loss_all += loss.item() * data.num_graphs
@@ -46,7 +46,6 @@ def Gtest(test_loader, model, device, criterion=nn.L1Loss(reduction="mean")):
             output = model(
                 data.x,
                 data.edge_index,
-                data.edge_attr,
                 data.batch,
             )
 

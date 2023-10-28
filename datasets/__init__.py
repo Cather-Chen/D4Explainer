@@ -7,7 +7,6 @@ from .web_dataset import WebDataset
 
 __all__ = [
     "BA3Motif",
-    "SynGraphDataset",
     "Mutagenicity",
     "NCI1",
     "bbbp",

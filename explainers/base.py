@@ -127,7 +127,7 @@ class Explainer(object):
         :param top_ratio_list: the ratio of edges to be selected
         :param graph: the original graph
         :param imp: the attribution scores for edges
-        :param if_cf: whether to use the CF method
+        :param if_cf: whether to generate cf explanation
         :return: the accuracy of the explanatory subgraph
         """
         if graph is None:

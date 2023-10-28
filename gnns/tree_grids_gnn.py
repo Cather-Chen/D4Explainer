@@ -2,7 +2,8 @@ import argparse
 import os
 import os.path as osp
 import time
-
+import sys
+sys.path.append("..")
 import numpy as np
 import torch
 import torch.nn as nn
@@ -17,7 +18,7 @@ EPS = 1
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train Mutag Model")
+    parser = argparse.ArgumentParser(description="Train Tree Grids Model")
 
     parser.add_argument("--data_name", nargs="?", default="Tree_Grids", help="Input data path.")
     parser.add_argument(
@@ -36,8 +37,6 @@ def parse_args():
     parser.add_argument(
         "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
-
     return parser.parse_args()
 
 
@@ -108,64 +107,6 @@ class Syn_GCN_TG(torch.nn.Module):
                 param.uniform_(-1.0, 1.0)
 
 
-class Syn_GCN_TG_attr(torch.nn.Module):
-    def __init__(self, num_unit, n_input, n_out, n_hid):
-        super(Syn_GCN_TG_attr, self).__init__()
-        self.convs = ModuleList()
-        self.batch_norms = ModuleList()
-        self.relus = ModuleList()
-        self.edge_emb = Lin(3, 1)
-        self.relus.extend([ReLU()] * num_unit)
-        self.convs.append(GCNConv(in_channels=n_input, out_channels=n_hid))
-        for i in range(num_unit - 2):
-            self.convs.append(GCNConv(in_channels=n_hid, out_channels=n_hid))
-        self.convs.append(GCNConv(in_channels=n_hid, out_channels=n_hid))
-        self.batch_norms.extend([BatchNorm(n_hid)] * num_unit)
-        self.ffn = nn.Sequential(*([nn.Linear(n_hid, n_hid)] + [ReLU(), nn.Dropout(), nn.Linear(n_hid, n_out)]))
-
-        self.softmax = Softmax(dim=1)
-        self.dropout = 0.6
-
-    def forward(self, x, edge_index, edge_attr=None):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
-            x = conv(x, edge_index, edge_weight=edge_weight)
-            # x = F.dropout(x, self.dropout, training=self.training)
-            # x = ReLU(batch_norm(x))
-            x = relu(x)
-        # graph_x = global_mean_pool(x, batch)
-        # x_res = torch.cat(xx, dim=1)
-        pred = self.ffn(x)  # [node_num, n_class]
-        self.readout = self.softmax(pred)
-        return pred
-
-    def get_node_reps(self, x, edge_index, edge_attr=None):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
-            x = conv(x, edge_index, edge_weight=edge_weight)
-            x = relu(x)
-            # x = relu(x)
-        node_x = x
-        return node_x
-
-    def get_node_pred_subgraph(self, x, edge_index, edge_attr=None, mapping=None):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
-            x = conv(x, edge_index, edge_weight=edge_weight)
-            # x = F.dropout(x, self.dropout, training=self.training)
-            # x = relu(batch_norm(x))
-            x = relu(x)
-        node_repr = self.ffn(x)  # [node_num, n_class]
-        node_prob = self.softmax(node_repr)
-        output_prob = node_prob[mapping]  # [bsz, n_classes]
-        output_repr = node_repr[mapping]  # [bsz, n_classes]
-        return output_prob, output_repr
-
-    def reset_parameters(self):
-        with torch.no_grad():
-            for param in self.parameters():
-                param.uniform_(-1.0, 1.0)
-
 
 if __name__ == "__main__":
     set_seed(33)
@@ -177,10 +118,7 @@ if __name__ == "__main__":
     data.to(device)
     n_input = data.x.size(1)
     n_labels = int(torch.unique(data.y).size(0))
-    if args.with_attr:
-        model = Syn_GCN_TG_attr(args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden).to(device)
-    else:
-        model = Syn_GCN_TG(args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden).to(device)
+    model = Syn_GCN_TG(args.num_unit, n_input=n_input, n_out=n_labels, n_hid=args.hidden).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5)
@@ -220,7 +158,7 @@ if __name__ == "__main__":
             loss_test, y_pred = eval()
             scheduler.step(loss_test)
 
-    save_path = f"{name}_gcn_attr.pt" if args.with_attr else f"{name}_gcn.pt"
+    save_path = f"{name}_gcn.pt"
 
     if not osp.exists(args.model_path):
         os.makedirs(args.model_path)

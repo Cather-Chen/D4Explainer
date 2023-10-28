@@ -21,27 +21,3 @@ task_type = {
 }
 
 dataset_choices = list(task_type.keys())
-
-
-explainer_choices = [
-    "DiffExplainer",
-    "GNNExplainer",
-    "PGExplainer",
-    "PGMExplainer",
-    "CXPlain",
-    "CF_Explainer",
-    "SAExplainer",
-    "GradCam",
-    "IGExplainer",
-    "RandomCaster",
-]
-
-
-def add_dataset_args(parser):
-    parser.add_argument("--dataset", type=str, default="NCI1", choices=dataset_choices)
-    return parser
-
-
-def add_explainer_args(parser):
-    parser.add_argument("--explainer", type=str, default="DiffExplainer", choices=explainer_choices)
-    return parser

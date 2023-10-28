@@ -3,7 +3,8 @@ import os
 import os.path as osp
 import random
 import time
-
+import sys
+sys.path.append("..")
 import torch
 import torch.nn as nn
 from torch.nn import ModuleList, ReLU, Softmax
@@ -18,7 +19,7 @@ EPS = 1
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train Mutag Model")
+    parser = argparse.ArgumentParser(description="Train NCI1 Model")
 
     parser.add_argument(
         "--data_path", nargs="?", default=osp.join(osp.dirname(__file__), "..", "data", "NCI1"), help="Input data path."
@@ -38,8 +39,6 @@ def parse_args():
     parser.add_argument(
         "--random_label", type=bool, default=False, help="train a model under label randomization for sanity check"
     )
-    parser.add_argument("--with_attr", type=bool, default=False, help="train a model with edge attributes")
-
     return parser.parse_args()
 
 
@@ -112,63 +111,6 @@ class NCI1GCN(torch.nn.Module):
                 param.uniform_(-1.0, 1.0)
 
 
-class NCI1GCN_attr(torch.nn.Module):
-    def __init__(self, conv_unit=3):
-        super(NCI1GCN_attr, self).__init__()
-        self.convs = ModuleList()
-        self.batch_norms = ModuleList()
-        self.relus = ModuleList()
-        self.convs.append(LEConv(in_channels=37, out_channels=128))
-        for i in range(conv_unit - 2):
-            self.convs.append(LEConv(in_channels=128, out_channels=128))
-        self.convs.append(LEConv(in_channels=128, out_channels=128))
-        self.batch_norms.extend([BatchNorm(128)] * conv_unit)
-        self.relus.extend([ReLU()] * conv_unit)
-        self.ffn = nn.Sequential(*([nn.Linear(128, 128)] + [ReLU(), nn.Dropout(), nn.Linear(128, 2)]))
-
-        self.softmax = Softmax(dim=1)
-
-    def forward(self, x, edge_index, edge_attr, batch):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
-            x = conv(x, edge_index, edge_weight)
-            # x = relu(batch_norm(x))
-            x = relu(x)
-        graph_x = global_mean_pool(x, batch)
-        pred = self.ffn(graph_x)
-        self.readout = self.softmax(pred)
-        return pred
-
-    def get_pred(self, x, edge_index, edge_attr, batch):
-        edge_weight = torch.ones((edge_index.size(1),), device=edge_index.device) if edge_attr is None else edge_attr
-        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
-            x = conv(x, edge_index, edge_weight)
-            # x = relu(batch_norm(x))
-            x = relu(x)
-        node_x = x
-        graph_x = global_mean_pool(node_x, batch)
-        pred = self.ffn(graph_x)
-        self.readout = self.softmax(pred)
-        return self.readout, pred
-
-    def get_pred_explain(self, x, edge_index, edge_attr, edge_mask, batch):
-        edge_mask = (edge_mask * EPS).sigmoid()
-        edge_mask = edge_mask * edge_attr
-        for conv, batch_norm, relu in zip(self.convs, self.batch_norms, self.relus):
-            x = conv(x, edge_index, edge_weight=edge_mask)
-            x = relu(x)
-        node_x = x
-        graph_x = global_mean_pool(node_x, batch)
-        pred = self.ffn(graph_x)
-        self.readout = self.softmax(pred)
-        return self.readout, pred
-
-    def reset_parameters(self):
-        with torch.no_grad():
-            for param in self.parameters():
-                param.uniform_(-1.0, 1.0)
-
-
 if __name__ == "__main__":
     set_seed(0)
     args = parse_args()
@@ -185,7 +127,7 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    model = NCI1GCN_attr(args.num_unit).to(device) if args.with_attr else NCI1GCN(args.num_unit).to(device)
+    model = NCI1GCN(args.num_unit).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=10, min_lr=1e-5)
@@ -220,8 +162,7 @@ if __name__ == "__main__":
             "Validation acc: {:5f}".format(epoch, t2 - t1, lr, loss, train_acc, val_error, val_acc)
         )
 
-    save_path = "NCI1_gcn_attr.pt" if args.with_attr else "NCI1_gcn.pt"
-
+    save_path = "NCI1_gcn.pt"
     if not osp.exists(args.model_path):
         os.makedirs(args.model_path)
     torch.save(model.cpu(), osp.join(args.model_path, save_path))
